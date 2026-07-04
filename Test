@@ -1,1517 +1,2164 @@
 --[[
-    Nevora Hub — Premium Roblox UI Library
-    Dark futuristic premium theme, modular OOP design.
-    Usage: local NevoraHub = loadstring(...)() -- or require if used as ModuleScript
+    NEVORA HUB - PREMIUM ROBLOX UI FRAMEWORK
+    Architecture: Clean OOP, Modular, Event-Driven
+    Style: Dark Futuristic, Glassmorphism, Cyberpunk Modern
+    [ FIXED & UNIFIED VERSION ]
 ]]
 
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
-local CoreGui = game:GetService("CoreGui")
-
-local LocalPlayer = Players.LocalPlayer
-
---// ================= THEME =================
-local Themes = {
-    Dark = {
-        Background   = Color3.fromRGB(15, 16, 18),
-        Panel        = Color3.fromRGB(22, 23, 26),
-        PanelLight   = Color3.fromRGB(28, 29, 33),
-        Stroke       = Color3.fromRGB(40, 41, 46),
-        Text         = Color3.fromRGB(235, 235, 240),
-        SubText      = Color3.fromRGB(150, 152, 160),
-        Accent       = Color3.fromRGB(0, 208, 132), -- emerald green default
-        Success      = Color3.fromRGB(80, 220, 140),
-        Warning      = Color3.fromRGB(255, 170, 90),
-        Danger       = Color3.fromRGB(235, 90, 90),
+local Nevora = {
+    Version = "1.0.0",
+    Instances = {},
+    Modules = {},
+    Theme = {
+        Background = Color3.fromRGB(13, 13, 18),
+        Container = Color3.fromRGB(18, 18, 24),
+        Sidebar = Color3.fromRGB(15, 15, 20),
+        Accent = Color3.fromRGB(0, 255, 170), -- Neon Cyberpunk Green
+        Text = Color3.fromRGB(240, 240, 240),
+        TextMuted = Color3.fromRGB(150, 150, 150),
+        Border = Color3.fromRGB(35, 35, 45),
+        Hover = Color3.fromRGB(25, 25, 35),
+        ToggleOn = Color3.fromRGB(0, 255, 170),
+        ToggleOff = Color3.fromRGB(40, 40, 50),
+        GlassOpacity = 0.85,
+        Font = Enum.Font.GothamMedium,
+        FontBold = Enum.Font.GothamBold
     }
 }
 
---// ================= UTILITIES =================
-local Utility = {}
+-- [ SERVICES ]
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 
-function Utility.Create(class, props, children)
-    local inst = Instance.new(class)
-    for prop, value in pairs(props or {}) do
-        inst[prop] = value
-    end
-    for _, child in ipairs(children or {}) do
-        child.Parent = inst
-    end
-    return inst
-end
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
-function Utility.Tween(obj, info, props)
-    local tw = TweenService:Create(obj, info, props)
-    tw:Play()
-    return tw
-end
+-- Safe CoreGui/PlayerGui target
+local TargetParent = RunService:IsStudio() and LocalPlayer:WaitForChild("PlayerGui") or CoreGui
 
-function Utility.Corner(parent, radius)
-    return Utility.Create("UICorner", {CornerRadius = UDim.new(0, radius or 8), Parent = parent})
-end
+-- [ CONNECTION MANAGER ]
+local ConnectionManager = {}
+ConnectionManager.__index = ConnectionManager
 
-function Utility.Stroke(parent, color, thickness)
-    return Utility.Create("UIStroke", {
-        Color = color,
-        Thickness = thickness or 1,
-        Transparency = 0.4,
-        Parent = parent,
-    })
-end
-
-function Utility.Padding(parent, all)
-    return Utility.Create("UIPadding", {
-        PaddingTop = UDim.new(0, all),
-        PaddingBottom = UDim.new(0, all),
-        PaddingLeft = UDim.new(0, all),
-        PaddingRight = UDim.new(0, all),
-        Parent = parent,
-    })
-end
-
-local EASE = Enum.EasingStyle.Quint
-local DIR = Enum.EasingDirection.Out
-
---// ================= LIBRARY CORE =================
-local NevoraHub = {}
-NevoraHub.__index = NevoraHub
-
-function NevoraHub.new(config)
-    config = config or {}
-    local self = setmetatable({}, NevoraHub)
-
-    self.Title = config.Title or "Nevora Hub"
-    self.Subtitle = config.Subtitle or "Premium Interface"
-    self.Size = config.Size or UDim2.fromOffset(600, 450)
-    self.ConfigName = config.ConfigName or "NevoraHubConfig"
-    self.SaveConfigEnabled = config.SaveConfig or false
-    self.Theme = Themes[config.Theme or "Dark"]
-    if config.Accent then
-        self.Theme.Accent = config.Accent
-    end
-
-    self.Tabs = {}
-    self.FlagValues = {}
-    self.Flags = {}
-    self.Visible = true
-    self.Minimized = false
-
-    self:_BuildUI()
-    if self.SaveConfigEnabled then
-        self:LoadConfig()
-    end
-
+function ConnectionManager.new()
+    local self = setmetatable({}, ConnectionManager)
+    self.Connections = {}
     return self
 end
 
---// ================= BUILD MAIN WINDOW =================
-function NevoraHub:_BuildUI()
-    local Theme = self.Theme
-
-    -- ScreenGui (protected if possible)
-    local ScreenGui = Utility.Create("ScreenGui", {
-        Name = "NevoraHub_" .. HttpService:GenerateGUID(false),
-        ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        IgnoreGuiInset = true,
-    })
-
-    local ok = pcall(function()
-        ScreenGui.Parent = CoreGui
-    end)
-    if not ok then
-        ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+function ConnectionManager:Add(name, connection)
+    if self.Connections[name] then
+        self.Connections[name]:Disconnect()
     end
-    self.ScreenGui = ScreenGui
-
-    -- Main window
-    local Main = Utility.Create("Frame", {
-        Name = "Main",
-        Size = self.Size,
-        Position = UDim2.new(0.5, -self.Size.X.Offset / 2, 0.5, -self.Size.Y.Offset / 2),
-        BackgroundColor3 = Theme.Background,
-        BackgroundTransparency = 1,
-        ClipsDescendants = true,
-        Parent = ScreenGui,
-    })
-    Utility.Corner(Main, 12)
-    Utility.Stroke(Main, Theme.Stroke, 1)
-    self.Main = Main
-
-    -- Fade + scale in animation
-    Main.Size = UDim2.new(self.Size.X.Scale, self.Size.X.Offset * 0.9, self.Size.Y.Scale, self.Size.Y.Offset * 0.9)
-    Utility.Tween(Main, TweenInfo.new(0.35, EASE, DIR), {
-        Size = self.Size,
-        BackgroundTransparency = 0,
-    })
-
-    -- Header
-    local Header = Utility.Create("Frame", {
-        Name = "Header",
-        Size = UDim2.new(1, 0, 0, 46),
-        BackgroundColor3 = Theme.Panel,
-        Parent = Main,
-    })
-    Utility.Corner(Header, 12)
-    -- mask bottom corners of header (a small frame covering the lower rounded part)
-    Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 12),
-        Position = UDim2.new(0, 0, 1, -12),
-        BackgroundColor3 = Theme.Panel,
-        BorderSizePixel = 0,
-        Parent = Header,
-    })
-
-    local TitleLabel = Utility.Create("TextLabel", {
-        Text = self.Title,
-        Font = Enum.Font.GothamBold,
-        TextSize = 16,
-        TextColor3 = Theme.Text,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 16, 0, 6),
-        Size = UDim2.new(0.6, 0, 0, 18),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Header,
-    })
-    self.TitleLabel = TitleLabel
-
-    local SubtitleLabel = Utility.Create("TextLabel", {
-        Text = self.Subtitle,
-        Font = Enum.Font.Gotham,
-        TextSize = 12,
-        TextColor3 = Theme.SubText,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 16, 0, 24),
-        Size = UDim2.new(0.6, 0, 0, 14),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Header,
-    })
-    self.SubtitleLabel = SubtitleLabel
-
-    -- Close / Minimize buttons
-    local CloseBtn = Utility.Create("TextButton", {
-        Text = "×",
-        Font = Enum.Font.GothamBold,
-        TextSize = 18,
-        TextColor3 = Theme.SubText,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(0, 30, 0, 30),
-        Position = UDim2.new(1, -38, 0, 8),
-        Parent = Header,
-    })
-    CloseBtn.MouseEnter:Connect(function()
-        Utility.Tween(CloseBtn, TweenInfo.new(0.15), {TextColor3 = Theme.Danger})
-    end)
-    CloseBtn.MouseLeave:Connect(function()
-        Utility.Tween(CloseBtn, TweenInfo.new(0.15), {TextColor3 = Theme.SubText})
-    end)
-    CloseBtn.MouseButton1Click:Connect(function()
-        self:ToggleVisible()
-    end)
-
-    local MinBtn = Utility.Create("TextButton", {
-        Text = "—",
-        Font = Enum.Font.GothamBold,
-        TextSize = 14,
-        TextColor3 = Theme.SubText,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(0, 30, 0, 30),
-        Position = UDim2.new(1, -68, 0, 8),
-        Parent = Header,
-    })
-    MinBtn.MouseEnter:Connect(function()
-        Utility.Tween(MinBtn, TweenInfo.new(0.15), {TextColor3 = Theme.Accent})
-    end)
-    MinBtn.MouseLeave:Connect(function()
-        Utility.Tween(MinBtn, TweenInfo.new(0.15), {TextColor3 = Theme.SubText})
-    end)
-    MinBtn.MouseButton1Click:Connect(function()
-        self:_ToggleMinimize()
-    end)
-
-    -- Dragging
-    self:_MakeDraggable(Header, Main)
-
-    -- Body: Sidebar + Content
-    local Body = Utility.Create("Frame", {
-        Name = "Body",
-        Size = UDim2.new(1, 0, 1, -46),
-        Position = UDim2.new(0, 0, 0, 46),
-        BackgroundTransparency = 1,
-        Parent = Main,
-    })
-    self.Body = Body
-
-    local Sidebar = Utility.Create("Frame", {
-        Name = "Sidebar",
-        Size = UDim2.new(0, 140, 1, -12),
-        Position = UDim2.new(0, 6, 0, 6),
-        BackgroundColor3 = Theme.Panel,
-        Parent = Body,
-    })
-    Utility.Corner(Sidebar, 10)
-    local SidebarList = Utility.Create("UIListLayout", {
-        Padding = UDim.new(0, 4),
-        Parent = Sidebar,
-    })
-    Utility.Padding(Sidebar, 8)
-    self.Sidebar = Sidebar
-
-    local ContentHolder = Utility.Create("Frame", {
-        Name = "ContentHolder",
-        Size = UDim2.new(1, -156, 1, -12),
-        Position = UDim2.new(0, 150, 0, 6),
-        BackgroundColor3 = Theme.Panel,
-        Parent = Body,
-    })
-    Utility.Corner(ContentHolder, 10)
-    self.ContentHolder = ContentHolder
-
-    -- Watermark (hidden by default)
-    local Watermark = Utility.Create("TextLabel", {
-        Name = "Watermark",
-        Text = "",
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
-        BackgroundColor3 = Theme.Panel,
-        BackgroundTransparency = 0.1,
-        Position = UDim2.new(0, 10, 0, 10),
-        Size = UDim2.new(0, 0, 0, 28),
-        AutomaticSize = Enum.AutomaticSize.X,
-        Visible = false,
-        Parent = ScreenGui,
-    })
-    Utility.Padding(Watermark, 8)
-    Utility.Corner(Watermark, 6)
-    self.Watermark = Watermark
-
-    -- Notification container
-    local NotifyHolder = Utility.Create("Frame", {
-        Name = "NotifyHolder",
-        AnchorPoint = Vector2.new(1, 1),
-        Position = UDim2.new(1, -12, 1, -12),
-        Size = UDim2.new(0, 280, 1, -24),
-        BackgroundTransparency = 1,
-        Parent = ScreenGui,
-    })
-    local NotifyList = Utility.Create("UIListLayout", {
-        VerticalAlignment = Enum.VerticalAlignment.Bottom,
-        Padding = UDim.new(0, 8),
-        Parent = NotifyHolder,
-    })
-    self.NotifyHolder = NotifyHolder
+    self.Connections[name] = connection
 end
 
---// ================= DRAGGING =================
-function NevoraHub:_MakeDraggable(dragHandle, target)
-    local dragging, dragStart, startPos = false, nil, nil
+function ConnectionManager:DisconnectAll()
+    for name, connection in pairs(self.Connections) do
+        if connection and connection.Disconnect then
+            connection:Disconnect()
+        end
+    end
+    table.clear(self.Connections)
+end
 
-    dragHandle.InputBegan:Connect(function(input)
+local GlobalConnections = ConnectionManager.new()
+
+-- [ SIMPLE EVENT SYSTEM ]
+Nevora.EventSystem = { Events = {} }
+function Nevora.EventSystem:Connect(eventName, callback)
+    if not self.Events[eventName] then self.Events[eventName] = {} end
+    table.insert(self.Events[eventName], callback)
+end
+function Nevora.EventSystem:Fire(eventName, ...)
+    if self.Events[eventName] then
+        for _, cb in ipairs(self.Events[eventName]) do
+            task.spawn(cb, ...)
+        end
+    end
+end
+
+-- [ UTILITY ENGINE ]
+local Utility = {}
+function Utility:Create(className, properties)
+    local instance = Instance.new(className)
+    for i, v in pairs(properties) do
+        instance[i] = v
+    end
+    return instance
+end
+
+function Utility:Tween(instance, properties, duration, style, direction)
+    style = style or Enum.EasingStyle.Quad
+    direction = direction or Enum.EasingDirection.Out
+    duration = duration or 0.2
+    local tweenInfo = TweenInfo.new(duration, style, direction)
+    local tween = TweenService:Create(instance, tweenInfo, properties)
+    tween:Play()
+    return tween
+end
+
+function Utility:MakeDraggable(topBar, windowFrame)
+    local dragging, dragInput, dragStart, startPos
+    
+    local function update(input)
+        local delta = input.Position - dragStart
+        Utility:Tween(windowFrame, {
+            Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        }, 0.1, Enum.EasingStyle.Linear)
+    end
+    
+    GlobalConnections:Add("DragStart", topBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
-            startPos = target.Position
-            input.Changed:Connect(function()
+            startPos = windowFrame.Position
+            
+            local changedConnection
+            changedConnection = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
+                    if changedConnection then changedConnection:Disconnect() end
                 end
             end)
         end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            target.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
+    end))
+    
+    GlobalConnections:Add("DragInputChanged", topBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
         end
-    end)
-end
-
---// ================= MINIMIZE =================
-function NevoraHub:_ToggleMinimize()
-    self.Minimized = not self.Minimized
-    if self.Minimized then
-        Utility.Tween(self.Main, TweenInfo.new(0.3, EASE, DIR), {Size = UDim2.new(self.Size.X.Scale, self.Size.X.Offset, 0, 46)})
-    else
-        Utility.Tween(self.Main, TweenInfo.new(0.3, EASE, DIR), {Size = self.Size})
-    end
-end
-
-function NevoraHub:ToggleVisible()
-    self.Visible = not self.Visible
-    if self.Visible then
-        self.Main.Visible = true
-        Utility.Tween(self.Main, TweenInfo.new(0.25, EASE, DIR), {BackgroundTransparency = 0})
-    else
-        local tw = Utility.Tween(self.Main, TweenInfo.new(0.2, EASE, DIR), {BackgroundTransparency = 1})
-        tw.Completed:Connect(function()
-            if not self.Visible then
-                self.Main.Visible = false
-            end
-        end)
-    end
-end
-
-function NevoraHub:Destroy()
-    if self.ScreenGui then
-        self.ScreenGui:Destroy()
-    end
-end
-
-function NevoraHub:UpdateTitle(title, subtitle)
-    if title then
-        self.Title = title
-        self.TitleLabel.Text = title
-    end
-    if subtitle then
-        self.Subtitle = subtitle
-        self.SubtitleLabel.Text = subtitle
-    end
-end
-
-function NevoraHub:SetWatermark(text)
-    if text and text ~= "" then
-        self.Watermark.Text = text
-        self.Watermark.Visible = true
-    else
-        self.Watermark.Visible = false
-    end
-end
-
-function NevoraHub:SetTheme(themeName)
-    local newTheme = Themes[themeName]
-    if not newTheme then return end
-    self.Theme = newTheme
-    -- Basic re-color of core frames; component-level recoloring can be extended similarly.
-    self.Main.BackgroundColor3 = newTheme.Background
-    self.Sidebar.BackgroundColor3 = newTheme.Panel
-    self.ContentHolder.BackgroundColor3 = newTheme.Panel
-end
-
---// ================= NOTIFICATIONS =================
-function NevoraHub:Notify(config)
-    config = config or {}
-    local Theme = self.Theme
-    local title = config.Title or "Notification"
-    local content = config.Content or ""
-    local duration = config.Duration or 4
-    local status = config.Type or "info" -- info, success, warning, danger
-
-    local colorMap = {
-        info = Theme.Accent,
-        success = Theme.Success,
-        warning = Theme.Warning,
-        danger = Theme.Danger,
-    }
-    local barColor = colorMap[status] or Theme.Accent
-
-    local Notif = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundColor3 = Theme.Panel,
-        BackgroundTransparency = 1,
-        Parent = self.NotifyHolder,
-    })
-    Utility.Corner(Notif, 8)
-    Utility.Stroke(Notif, Theme.Stroke, 1)
-    Utility.Padding(Notif, 10)
-
-    local Bar = Utility.Create("Frame", {
-        Size = UDim2.new(0, 3, 1, -4),
-        Position = UDim2.new(0, 0, 0, 2),
-        BackgroundColor3 = barColor,
-        Parent = Notif,
-    })
-    Utility.Corner(Bar, 2)
-
-    local TitleLbl = Utility.Create("TextLabel", {
-        Text = title,
-        Font = Enum.Font.GothamBold,
-        TextSize = 14,
-        TextColor3 = Theme.Text,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(1, -12, 0, 18),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Notif,
-    })
-
-    local ContentLbl = Utility.Create("TextLabel", {
-        Text = content,
-        Font = Enum.Font.Gotham,
-        TextSize = 12,
-        TextColor3 = Theme.SubText,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 20),
-        Size = UDim2.new(1, -12, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        TextWrapped = true,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Notif,
-    })
-
-    -- fade/slide in
-    Notif.Position = UDim2.new(1, 40, 0, 0)
-    Utility.Tween(Notif, TweenInfo.new(0.3, EASE, DIR), {BackgroundTransparency = 0.05})
-
-    task.delay(duration, function()
-        if Notif and Notif.Parent then
-            local tw = Utility.Tween(Notif, TweenInfo.new(0.25, EASE, DIR), {BackgroundTransparency = 1})
-            tw.Completed:Connect(function()
-                Notif:Destroy()
-            end)
+    end))
+    
+    GlobalConnections:Add("DragRender", UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
         end
-    end)
+    end))
 end
 
---// ================= CONFIG SAVE/LOAD =================
-function NevoraHub:SaveConfig()
-    local ok, encoded = pcall(function()
-        return HttpService:JSONEncode(self.FlagValues)
-    end)
-    if ok and writefile then
-        pcall(function()
-            writefile(self.ConfigName .. ".json", encoded)
-        end)
-    end
-end
-
-function NevoraHub:LoadConfig()
-    if not (readfile and isfile) then return end
-    local ok, exists = pcall(isfile, self.ConfigName .. ".json")
-    if ok and exists then
-        local success, data = pcall(function()
-            return HttpService:JSONDecode(readfile(self.ConfigName .. ".json"))
-        end)
-        if success and type(data) == "table" then
-            self.FlagValues = data
-        end
-    end
-end
-
---// ================= TAB =================
-local Tab = {}
-Tab.__index = Tab
-
-function NevoraHub:CreateTab(config)
-    config = config or {}
-    local Theme = self.Theme
-
-    local TabButton = Utility.Create("TextButton", {
-        Text = "  " .. (config.Name or "Tab"),
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextColor3 = Theme.SubText,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        BackgroundColor3 = Theme.PanelLight,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 32),
-        Parent = self.Sidebar,
-    })
-    Utility.Corner(TabButton, 6)
-
-    local Page = Utility.Create("ScrollingFrame", {
-        Size = UDim2.new(1, -16, 1, -16),
-        Position = UDim2.new(0, 8, 0, 8),
-        BackgroundTransparency = 1,
-        ScrollBarThickness = 3,
-        ScrollBarImageColor3 = Theme.Accent,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        Visible = false,
-        Parent = self.ContentHolder,
-    })
-    local PageList = Utility.Create("UIListLayout", {
-        Padding = UDim.new(0, 10),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = Page,
-    })
-
-    local self_tab = setmetatable({
-        Hub = self,
-        Button = TabButton,
-        Page = Page,
-        Name = config.Name or "Tab",
-    }, Tab)
-
-    table.insert(self.Tabs, self_tab)
-
-    TabButton.MouseButton1Click:Connect(function()
-        self:_SelectTab(self_tab)
-    end)
-
-    TabButton.MouseEnter:Connect(function()
-        if not Page.Visible then
-            Utility.Tween(TabButton, TweenInfo.new(0.15), {BackgroundTransparency = 0.7})
-        end
-    end)
-    TabButton.MouseLeave:Connect(function()
-        if not Page.Visible then
-            Utility.Tween(TabButton, TweenInfo.new(0.15), {BackgroundTransparency = 1})
-        end
-    end)
-
-    -- first tab auto selected
-    if #self.Tabs == 1 then
-        self:_SelectTab(self_tab)
-    end
-
-    return self_tab
-end
-
-function NevoraHub:_SelectTab(selected)
-    local Theme = self.Theme
-    for _, tab in ipairs(self.Tabs) do
-        local isSel = (tab == selected)
-        tab.Page.Visible = isSel
-        Utility.Tween(tab.Button, TweenInfo.new(0.2), {
-            BackgroundTransparency = isSel and 0 or 1,
-            TextColor3 = isSel and Theme.Text or Theme.SubText,
+-- [ ANIMATION ENGINE ]
+local AnimationEngine = {}
+function AnimationEngine:Ripple(button)
+    local conn = button.MouseButton1Down:Connect(function()
+        local ripple = Utility:Create("Frame", {
+            Name = "Ripple",
+            Parent = button,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+            BackgroundTransparency = 0.8,
+            Position = UDim2.new(0, Mouse.X - button.AbsolutePosition.X, 0, Mouse.Y - button.AbsolutePosition.Y),
+            Size = UDim2.new(0, 0, 0, 0),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            ZIndex = button.ZIndex + 1
         })
-        tab.Button.BackgroundColor3 = Theme.Accent
-        if isSel then
-            tab.Page.Position = UDim2.new(0, 20, 0, 8)
-            Utility.Tween(tab.Page, TweenInfo.new(0.25, EASE, DIR), {Position = UDim2.new(0, 8, 0, 8)})
-        end
-    end
+        
+        Utility:Create("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = ripple
+        })
+        
+        local sizeMax = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 1.5
+        local tween = Utility:Tween(ripple, {
+            Size = UDim2.new(0, sizeMax, 0, sizeMax),
+            BackgroundTransparency = 1
+        }, 0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+        
+        tween.Completed:Connect(function()
+            ripple:Destroy()
+        end)
+    end)
+    GlobalConnections:Add("RippleClick_" .. button.Name .. "_" .. HttpService:GenerateGUID(false), conn)
 end
 
---// ================= SECTION =================
-function Tab:CreateSection(name)
-    local Theme = self.Hub.Theme
+-- [ COMPONENT CLASSES ]
+local Components = {}
 
-    local SectionLabel = Utility.Create("TextLabel", {
-        Text = name,
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        TextColor3 = Theme.Accent,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 20),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = self.Page,
-    })
-    return SectionLabel
-end
-
-function Tab:CreateDivider()
-    local Theme = self.Hub.Theme
-    return Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 1),
-        BackgroundColor3 = Theme.Stroke,
-        BorderSizePixel = 0,
-        Parent = self.Page,
-    })
-end
-
-function Tab:CreateLabel(text)
-    local Theme = self.Hub.Theme
-    return Utility.Create("TextLabel", {
-        Text = text,
-        Font = Enum.Font.Gotham,
-        TextSize = 13,
-        TextColor3 = Theme.SubText,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 18),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = self.Page,
-    })
-end
-
-function Tab:CreateParagraph(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local Holder = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundColor3 = Theme.PanelLight,
-        Parent = self.Page,
-    })
-    Utility.Corner(Holder, 8)
-    Utility.Padding(Holder, 10)
-
-    Utility.Create("TextLabel", {
-        Text = config.Title or "",
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 16),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Holder,
-    })
-
-    Utility.Create("TextLabel", {
-        Text = config.Content or "",
-        Font = Enum.Font.Gotham,
-        TextSize = 12,
-        TextColor3 = Theme.SubText,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 0, 0, 18),
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        TextWrapped = true,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Holder,
-    })
-
-    return Holder
-end
-
---// ================= BUTTON =================
-function Tab:CreateButton(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local callback = config.Callback or function() end
-
-    local Btn = Utility.Create("TextButton", {
+-- Button Component
+Components.Button = {}
+Components.Button.__index = Components.Button
+function Components.Button.new(parent, config)
+    local self = setmetatable({}, Components.Button)
+    self.Config = config
+    self.Callback = config.Callback or function() end
+    
+    self.Instance = Utility:Create("TextButton", {
+        Name = "Button_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundColor3 = Nevora.Theme.Container,
         Text = "",
         AutoButtonColor = false,
-        Size = UDim2.new(1, 0, 0, config.Description and 44 or 34),
-        BackgroundColor3 = Theme.PanelLight,
-        Parent = self.Page,
+        ClipsDescendants = true
     })
-    Utility.Corner(Btn, 8)
-
-    Utility.Create("TextLabel", {
-        Text = config.Name or "Button",
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
+    
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    Utility:Create("UIStroke", {
+        Color = Nevora.Theme.Border,
+        Thickness = 1,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = self.Instance
+    })
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 6),
-        Size = UDim2.new(1, -24, 0, 16),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Btn,
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
     })
-
-    if config.Description then
-        Utility.Create("TextLabel", {
-            Text = config.Description,
-            Font = Enum.Font.Gotham,
-            TextSize = 11,
-            TextColor3 = Theme.SubText,
-            BackgroundTransparency = 1,
-            Position = UDim2.new(0, 12, 0, 22),
-            Size = UDim2.new(1, -24, 0, 14),
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Parent = Btn,
-        })
-    end
-
-    Btn.MouseEnter:Connect(function()
-        Utility.Tween(Btn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Stroke})
+    
+    AnimationEngine:Ripple(self.Instance)
+    
+    self.Instance.MouseEnter:Connect(function()
+        Utility:Tween(self.Instance, { BackgroundColor3 = Nevora.Theme.Hover })
     end)
-    Btn.MouseLeave:Connect(function()
-        Utility.Tween(Btn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.PanelLight})
+    self.Instance.MouseLeave:Connect(function()
+        Utility:Tween(self.Instance, { BackgroundColor3 = Nevora.Theme.Container })
     end)
-
-    Btn.MouseButton1Down:Connect(function()
-        Utility.Tween(Btn, TweenInfo.new(0.08), {BackgroundColor3 = Theme.Accent})
-    end)
-    Btn.MouseButton1Up:Connect(function()
-        Utility.Tween(Btn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Stroke})
-    end)
-
-    Btn.MouseButton1Click:Connect(function()
-        -- ripple/pulse feedback
-        local Ripple = Utility.Create("Frame", {
-            BackgroundColor3 = Theme.Accent,
-            BackgroundTransparency = 0.5,
-            Size = UDim2.new(0, 0, 0, 0),
-            Position = UDim2.new(0.5, 0, 0.5, 0),
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Parent = Btn,
-        })
-        Utility.Corner(Ripple, 999)
-        Utility.Tween(Ripple, TweenInfo.new(0.35, EASE, DIR), {
-            Size = UDim2.new(1.3, 0, 3, 0),
-            BackgroundTransparency = 1,
-        })
-        task.delay(0.35, function() Ripple:Destroy() end)
-
-        local ok, err = pcall(callback)
-        if not ok then
-            warn("[Nevora Hub] Button callback error: " .. tostring(err))
-        end
-    end)
-
-    return Btn
+    self.Instance.MouseButton1Click:Connect(self.Callback)
+    
+    return self
 end
 
---// ================= TOGGLE =================
-function Tab:CreateToggle(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local state = config.Default or false
-    local callback = config.Callback or function() end
-
-    local Holder = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundColor3 = Theme.PanelLight,
-        Parent = self.Page,
-    })
-    Utility.Corner(Holder, 8)
-
-    Utility.Create("TextLabel", {
-        Text = config.Name or "Toggle",
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(1, -60, 1, 0),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Holder,
-    })
-
-    local Track = Utility.Create("TextButton", {
+-- Toggle Component
+Components.Toggle = {}
+Components.Toggle.__index = Components.Toggle
+function Components.Toggle.new(parent, config)
+    local self = setmetatable({}, Components.Toggle)
+    self.State = config.Default or false
+    self.Callback = config.Callback or function() end
+    
+    self.Instance = Utility:Create("TextButton", {
+        Name = "Toggle_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundColor3 = Nevora.Theme.Container,
         Text = "",
-        Size = UDim2.new(0, 38, 0, 20),
+        AutoButtonColor = false
+    })
+    
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -60, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    self.Indicator = Utility:Create("Frame", {
+        Parent = self.Instance,
+        Size = UDim2.new(0, 40, 0, 20),
         Position = UDim2.new(1, -50, 0.5, -10),
-        BackgroundColor3 = state and Theme.Accent or Theme.Stroke,
-        Parent = Holder,
+        BackgroundColor3 = self.State and Nevora.Theme.ToggleOn or Nevora.Theme.ToggleOff
     })
-    Utility.Corner(Track, 999)
-
-    local Knob = Utility.Create("Frame", {
+    Utility:Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = self.Indicator })
+    
+    self.Circle = Utility:Create("Frame", {
+        Parent = self.Indicator,
         Size = UDim2.new(0, 16, 0, 16),
-        Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        Parent = Track,
+        Position = UDim2.new(0, self.State and 22 or 2, 0.5, -8),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     })
-    Utility.Corner(Knob, 999)
-
-    local function setState(newState, fireCallback)
-        state = newState
-        Utility.Tween(Track, TweenInfo.new(0.2, EASE, DIR), {BackgroundColor3 = state and Theme.Accent or Theme.Stroke})
-        Utility.Tween(Knob, TweenInfo.new(0.2, EASE, DIR), {Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)})
-        if fireCallback ~= false then
-            local ok, err = pcall(callback, state)
-            if not ok then warn("[Nevora Hub] Toggle callback error: " .. tostring(err)) end
-        end
+    Utility:Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = self.Circle })
+    
+    local function UpdateToggle()
+        local targetColor = self.State and Nevora.Theme.ToggleOn or Nevora.Theme.ToggleOff
+        local targetPos = self.State and UDim2.new(0, 22, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+        
+        Utility:Tween(self.Indicator, { BackgroundColor3 = targetColor }, 0.25)
+        Utility:Tween(self.Circle, { Position = targetPos }, 0.25, Enum.EasingStyle.Back)
+        self.Callback(self.State)
     end
-
-    Track.MouseButton1Click:Connect(function()
-        setState(not state)
+    
+    self.Instance.MouseButton1Click:Connect(function()
+        self.State = not self.State
+        UpdateToggle()
     end)
-
-    if config.Flag then
-        self.Hub.Flags[config.Flag] = {Set = setState, Get = function() return state end}
-    end
-
-    setState(state, false)
-
-    return {Set = setState, Get = function() return state end}
+    
+    return self
 end
 
---// ================= SLIDER =================
-function Tab:CreateSlider(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local min = config.Min or 0
-    local max = config.Max or 100
-    local default = math.clamp(config.Default or min, min, max)
-    local callback = config.Callback or function() end
-
-    local Holder = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 46),
-        BackgroundColor3 = Theme.PanelLight,
-        Parent = self.Page,
+-- Slider Component
+Components.Slider = {}
+Components.Slider.__index = Components.Slider
+function Components.Slider.new(parent, config)
+    local self = setmetatable({}, Components.Slider)
+    self.Min = config.Min or 0
+    self.Max = config.Max or 100
+    self.Value = config.Default or self.Min
+    self.Callback = config.Callback or function() end
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Slider_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 50),
+        BackgroundColor3 = Nevora.Theme.Container
     })
-    Utility.Corner(Holder, 8)
-
-    Utility.Create("TextLabel", {
-        Text = config.Name or "Slider",
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 10, 0, 5),
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 6),
-        Size = UDim2.new(1, -70, 0, 16),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Holder,
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
     })
-
-    local ValueLabel = Utility.Create("TextLabel", {
-        Text = tostring(default),
-        Font = Enum.Font.GothamMedium,
-        TextSize = 12,
-        TextColor3 = Theme.SubText,
+    
+    self.ValueLabel = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(0, 50, 0, 20),
+        Position = UDim2.new(1, -60, 0, 5),
         BackgroundTransparency = 1,
-        Position = UDim2.new(1, -60, 0, 6),
-        Size = UDim2.new(0, 50, 0, 16),
-        TextXAlignment = Enum.TextXAlignment.Right,
-        Parent = Holder,
+        Text = tostring(self.Value),
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Right
     })
-
-    local Bar = Utility.Create("Frame", {
-        Size = UDim2.new(1, -24, 0, 6),
-        Position = UDim2.new(0, 12, 0, 30),
-        BackgroundColor3 = Theme.Stroke,
-        Parent = Holder,
+    
+    self.Bar = Utility:Create("TextButton", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 0, 6),
+        Position = UDim2.new(0, 10, 0, 32),
+        BackgroundColor3 = Nevora.Theme.ToggleOff,
+        Text = "",
+        AutoButtonColor = false
     })
-    Utility.Corner(Bar, 999)
-
-    local Fill = Utility.Create("Frame", {
-        Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
-        BackgroundColor3 = Theme.Accent,
-        Parent = Bar,
+    Utility:Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = self.Bar })
+    
+    self.Fill = Utility:Create("Frame", {
+        Parent = self.Bar,
+        Size = UDim2.new(math.clamp((self.Value - self.Min) / (self.Max - self.Min), 0, 1), 0, 1, 0),
+        BackgroundColor3 = Nevora.Theme.Accent
     })
-    Utility.Corner(Fill, 999)
-
-    local dragging = false
-    local function updateFromInputX(xPos)
-        local relative = math.clamp((xPos - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-        local value = math.floor(min + (max - min) * relative + 0.5)
-        Fill.Size = UDim2.new(relative, 0, 1, 0)
-        ValueLabel.Text = tostring(value)
-        local ok, err = pcall(callback, value)
-        if not ok then warn("[Nevora Hub] Slider callback error: " .. tostring(err)) end
-        return value
+    Utility:Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = self.Fill })
+    
+    local isDragging = false
+    local function UpdateSlider(input)
+        local pos = math.clamp((input.Position.X - self.Bar.AbsolutePosition.X) / self.Bar.AbsoluteSize.X, 0, 1)
+        self.Value = math.floor(self.Min + ((self.Max - self.Min) * pos))
+        Utility:Tween(self.Fill, { Size = UDim2.new(pos, 0, 1, 0) }, 0.05, Enum.EasingStyle.Linear)
+        self.ValueLabel.Text = tostring(self.Value)
+        self.Callback(self.Value)
     end
-
-    Bar.InputBegan:Connect(function(input)
+    
+    self.Bar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            updateFromInputX(input.Position.X)
+            isDragging = true
+            UpdateSlider(input)
         end
     end)
+    
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
+            isDragging = false
         end
     end)
+    
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            updateFromInputX(input.Position.X)
+        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            UpdateSlider(input)
         end
     end)
-
-    return {
-        Set = function(value)
-            value = math.clamp(value, min, max)
-            local relative = (value - min) / (max - min)
-            Fill.Size = UDim2.new(relative, 0, 1, 0)
-            ValueLabel.Text = tostring(value)
-        end
-    }
+    
+    return self
 end
 
---// ================= DROPDOWN (single) =================
-function Tab:CreateDropdown(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local options = config.Options or {}
-    local selected = config.Default
-    local callback = config.Callback or function() end
-    local open = false
-
-    local Holder = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundColor3 = Theme.PanelLight,
-        ClipsDescendants = true,
-        Parent = self.Page,
+-- Textbox Component
+Components.Textbox = {}
+Components.Textbox.__index = Components.Textbox
+function Components.Textbox.new(parent, config)
+    local self = setmetatable({}, Components.Textbox)
+    self.Callback = config.Callback or function() end
+    self.ClearOnFocus = config.ClearOnFocus or false
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Textbox_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 50),
+        BackgroundColor3 = Nevora.Theme.Container
     })
-    Utility.Corner(Holder, 8)
-
-    local Header = Utility.Create("TextButton", {
-        Text = "",
-        Size = UDim2.new(1, 0, 0, 34),
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    self.Stroke = Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 10, 0, 5),
         BackgroundTransparency = 1,
-        Parent = Holder,
-    })
-
-    Utility.Create("TextLabel", {
-        Text = config.Name or "Dropdown",
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(0.5, 0, 0, 34),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Header,
-    })
-
-    local SelectedLabel = Utility.Create("TextLabel", {
-        Text = tostring(selected or "Select..."),
-        Font = Enum.Font.Gotham,
-        TextSize = 12,
-        TextColor3 = Theme.SubText,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0.4, 0, 0, 0),
-        Size = UDim2.new(0.5, -30, 0, 34),
-        TextXAlignment = Enum.TextXAlignment.Right,
-        Parent = Header,
-    })
-
-    local Arrow = Utility.Create("TextLabel", {
-        Text = "⌄",
-        Font = Enum.Font.GothamBold,
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
         TextSize = 14,
-        TextColor3 = Theme.SubText,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    self.Input = Utility:Create("TextBox", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 10, 0, 25),
         BackgroundTransparency = 1,
-        Position = UDim2.new(1, -26, 0, 0),
-        Size = UDim2.new(0, 20, 0, 34),
-        Parent = Header,
-    })
-
-    local OptionList = Utility.Create("Frame", {
-        Position = UDim2.new(0, 6, 0, 36),
-        Size = UDim2.new(1, -12, 0, 0),
-        BackgroundTransparency = 1,
-        Parent = Holder,
-    })
-    local OptLayout = Utility.Create("UIListLayout", {Padding = UDim.new(0, 4), Parent = OptionList})
-
-    local function rebuildOptions()
-        for _, c in ipairs(OptionList:GetChildren()) do
-            if c:IsA("TextButton") then c:Destroy() end
-        end
-        for _, opt in ipairs(options) do
-            local OptBtn = Utility.Create("TextButton", {
-                Text = tostring(opt),
-                Font = Enum.Font.Gotham,
-                TextSize = 12,
-                TextColor3 = (opt == selected) and Theme.Accent or Theme.SubText,
-                BackgroundColor3 = Theme.Panel,
-                Size = UDim2.new(1, 0, 0, 26),
-                Parent = OptionList,
-            })
-            Utility.Corner(OptBtn, 6)
-            OptBtn.MouseButton1Click:Connect(function()
-                selected = opt
-                SelectedLabel.Text = tostring(opt)
-                local ok, err = pcall(callback, opt)
-                if not ok then warn("[Nevora Hub] Dropdown callback error: " .. tostring(err)) end
-                rebuildOptions()
-                open = false
-                Utility.Tween(Holder, TweenInfo.new(0.2, EASE, DIR), {Size = UDim2.new(1, 0, 0, 34)})
-                Utility.Tween(Arrow, TweenInfo.new(0.2), {Rotation = 0})
-            end)
-        end
-    end
-    rebuildOptions()
-
-    Header.MouseButton1Click:Connect(function()
-        open = not open
-        local targetHeight = open and (34 + (#options * 30) + 10) or 34
-        Utility.Tween(Holder, TweenInfo.new(0.25, EASE, DIR), {Size = UDim2.new(1, 0, 0, targetHeight)})
-        Utility.Tween(Arrow, TweenInfo.new(0.2), {Rotation = open and 180 or 0})
-    end)
-
-    return {
-        Set = function(value)
-            selected = value
-            SelectedLabel.Text = tostring(value)
-            rebuildOptions()
-        end,
-        Refresh = function(newOptions)
-            options = newOptions
-            rebuildOptions()
-        end,
-    }
-end
-
---// ================= MULTI DROPDOWN =================
-function Tab:CreateMultiDropdown(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local options = config.Options or {}
-    local selectedSet = {}
-    for _, v in ipairs(config.Default or {}) do selectedSet[v] = true end
-    local callback = config.Callback or function() end
-    local open = false
-
-    local Holder = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundColor3 = Theme.PanelLight,
-        ClipsDescendants = true,
-        Parent = self.Page,
-    })
-    Utility.Corner(Holder, 8)
-
-    local Header = Utility.Create("TextButton", {
         Text = "",
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundTransparency = 1,
-        Parent = Holder,
-    })
-
-    Utility.Create("TextLabel", {
-        Text = config.Name or "Multi Dropdown",
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(0.5, 0, 0, 34),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Header,
-    })
-
-    local Arrow = Utility.Create("TextLabel", {
-        Text = "⌄",
-        Font = Enum.Font.GothamBold,
+        PlaceholderText = config.Placeholder or "Enter text...",
+        PlaceholderColor3 = Nevora.Theme.TextMuted,
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.Font,
         TextSize = 14,
-        TextColor3 = Theme.SubText,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(1, -26, 0, 0),
-        Size = UDim2.new(0, 20, 0, 34),
-        Parent = Header,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ClearTextOnFocus = self.ClearOnFocus
     })
-
-    local OptionList = Utility.Create("Frame", {
-        Position = UDim2.new(0, 6, 0, 36),
-        Size = UDim2.new(1, -12, 0, 0),
-        BackgroundTransparency = 1,
-        Parent = Holder,
-    })
-    Utility.Create("UIListLayout", {Padding = UDim.new(0, 4), Parent = OptionList})
-
-    local function getSelectedList()
-        local list = {}
-        for opt in pairs(selectedSet) do table.insert(list, opt) end
-        return list
-    end
-
-    local function rebuildOptions()
-        for _, c in ipairs(OptionList:GetChildren()) do
-            if c:IsA("TextButton") then c:Destroy() end
-        end
-        for _, opt in ipairs(options) do
-            local isSel = selectedSet[opt] == true
-            local OptBtn = Utility.Create("TextButton", {
-                Text = (isSel and "✓ " or "") .. tostring(opt),
-                Font = Enum.Font.Gotham,
-                TextSize = 12,
-                TextColor3 = isSel and Theme.Accent or Theme.SubText,
-                BackgroundColor3 = Theme.Panel,
-                Size = UDim2.new(1, 0, 0, 26),
-                Parent = OptionList,
-            })
-            Utility.Corner(OptBtn, 6)
-            OptBtn.MouseButton1Click:Connect(function()
-                selectedSet[opt] = not selectedSet[opt] or nil
-                if selectedSet[opt] == nil then selectedSet[opt] = nil end
-                local ok, err = pcall(callback, getSelectedList())
-                if not ok then warn("[Nevora Hub] MultiDropdown callback error: " .. tostring(err)) end
-                rebuildOptions()
-            end)
-        end
-    end
-    rebuildOptions()
-
-    Header.MouseButton1Click:Connect(function()
-        open = not open
-        local targetHeight = open and (34 + (#options * 30) + 10) or 34
-        Utility.Tween(Holder, TweenInfo.new(0.25, EASE, DIR), {Size = UDim2.new(1, 0, 0, targetHeight)})
-        Utility.Tween(Arrow, TweenInfo.new(0.2), {Rotation = open and 180 or 0})
+    
+    self.Input.Focused:Connect(function()
+        Utility:Tween(self.Stroke, { Color = Nevora.Theme.Accent }, 0.3)
     end)
-
-    return {
-        Get = getSelectedList,
-        Set = function(list)
-            selectedSet = {}
-            for _, v in ipairs(list) do selectedSet[v] = true end
-            rebuildOptions()
-        end,
-    }
+    
+    self.Input.FocusLost:Connect(function(enterPressed)
+        Utility:Tween(self.Stroke, { Color = Nevora.Theme.Border }, 0.3)
+        if enterPressed or not config.StrictEnter then
+            self.Callback(self.Input.Text)
+        end
+    end)
+    
+    return self
 end
 
---// ================= TEXTBOX =================
-function Tab:CreateTextbox(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local callback = config.Callback or function() end
-
-    local Holder = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundColor3 = Theme.PanelLight,
-        Parent = self.Page,
+-- Dropdown Component
+Components.Dropdown = {}
+Components.Dropdown.__index = Components.Dropdown
+function Components.Dropdown.new(parent, config)
+    local self = setmetatable({}, Components.Dropdown)
+    self.Options = config.Options or {}
+    self.Selected = config.Default or ""
+    self.Callback = config.Callback or function() end
+    self.IsOpen = false
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Dropdown_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 45),
+        BackgroundColor3 = Nevora.Theme.Container,
+        ClipsDescendants = true
     })
-    Utility.Corner(Holder, 8)
-
-    Utility.Create("TextLabel", {
-        Text = config.Name or "Textbox",
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    self.Stroke = Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    self.MainButton = Utility:Create("TextButton", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, 0, 0, 45),
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(0.4, 0, 1, 0),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Holder,
-    })
-
-    local InputBox = Utility.Create("TextBox", {
         Text = "",
-        PlaceholderText = config.Placeholder or "Type here...",
-        Font = Enum.Font.Gotham,
-        TextSize = 12,
-        TextColor3 = Theme.Text,
-        PlaceholderColor3 = Theme.SubText,
-        BackgroundColor3 = Theme.Panel,
-        Position = UDim2.new(0.42, 0, 0.5, -12),
-        Size = UDim2.new(0.55, -10, 0, 24),
-        ClearTextOnFocus = false,
-        Parent = Holder,
+        AutoButtonColor = false
     })
-    Utility.Corner(InputBox, 6)
-    Utility.Padding(InputBox, 6)
-
-    InputBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed then
-            local ok, err = pcall(callback, InputBox.Text)
-            if not ok then warn("[Nevora Hub] Textbox callback error: " .. tostring(err)) end
-        end
-    end)
-
-    return {
-        Set = function(text) InputBox.Text = text end,
-        Clear = function() InputBox.Text = "" end,
-        Get = function() return InputBox.Text end,
-    }
-end
-
---// ================= KEYBIND =================
-function Tab:CreateKeybind(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local currentKey = config.Default or Enum.KeyCode.Unknown
-    local callback = config.Callback or function() end
-    local mode = config.Mode or "Toggle" -- "Toggle" or "Hold"
-    local binding = false
-
-    local Holder = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundColor3 = Theme.PanelLight,
-        Parent = self.Page,
-    })
-    Utility.Corner(Holder, 8)
-
-    Utility.Create("TextLabel", {
-        Text = config.Name or "Keybind",
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.MainButton,
+        Size = UDim2.new(0.5, -10, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(0.5, 0, 1, 0),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Holder,
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
     })
-
-    local KeyBtn = Utility.Create("TextButton", {
-        Text = currentKey.Name,
-        Font = Enum.Font.GothamMedium,
-        TextSize = 12,
-        TextColor3 = Theme.Accent,
-        BackgroundColor3 = Theme.Panel,
-        Size = UDim2.new(0, 90, 0, 24),
-        Position = UDim2.new(1, -100, 0.5, -12),
-        Parent = Holder,
-    })
-    Utility.Corner(KeyBtn, 6)
-
-    KeyBtn.MouseButton1Click:Connect(function()
-        binding = true
-        KeyBtn.Text = "..."
-    end)
-
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if binding and input.UserInputType == Enum.UserInputType.Keyboard then
-            currentKey = input.KeyCode
-            KeyBtn.Text = currentKey.Name
-            binding = false
-            return
-        end
-        if not gameProcessed and input.KeyCode == currentKey then
-            if mode == "Hold" then
-                local ok, err = pcall(callback, true)
-                if not ok then warn("[Nevora Hub] Keybind callback error: " .. tostring(err)) end
-            else
-                local ok, err = pcall(callback)
-                if not ok then warn("[Nevora Hub] Keybind callback error: " .. tostring(err)) end
-            end
-        end
-    end)
-
-    if mode == "Hold" then
-        UserInputService.InputEnded:Connect(function(input, gameProcessed)
-            if not gameProcessed and input.KeyCode == currentKey then
-                local ok, err = pcall(callback, false)
-                if not ok then warn("[Nevora Hub] Keybind callback error: " .. tostring(err)) end
-            end
-        end)
-    end
-
-    return {
-        Set = function(keyCode) currentKey = keyCode; KeyBtn.Text = keyCode.Name end,
-    }
-end
-
---// ================= COLOR PICKER =================
-function Tab:CreateColorPicker(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local color = config.Default or Color3.fromRGB(255, 255, 255)
-    local callback = config.Callback or function() end
-
-    local Holder = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundColor3 = Theme.PanelLight,
-        Parent = self.Page,
-    })
-    Utility.Corner(Holder, 8)
-
-    Utility.Create("TextLabel", {
-        Text = config.Name or "Color",
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
+    
+    self.SelectedLabel = Utility:Create("TextLabel", {
+        Parent = self.MainButton,
+        Size = UDim2.new(0.5, -30, 1, 0),
+        Position = UDim2.new(0.5, 0, 0, 0),
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(0.6, 0, 1, 0),
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Holder,
+        Text = self.Selected == "" and "Select..." or self.Selected,
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Right
     })
-
-    local Preview = Utility.Create("TextButton", {
-        Text = "",
-        BackgroundColor3 = color,
-        Size = UDim2.new(0, 40, 0, 20),
-        Position = UDim2.new(1, -52, 0.5, -10),
-        Parent = Holder,
+    
+    self.Icon = Utility:Create("TextLabel", {
+        Parent = self.MainButton,
+        Size = UDim2.new(0, 20, 1, 0),
+        Position = UDim2.new(1, -25, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "+",
+        TextColor3 = Nevora.Theme.TextMuted,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 18
     })
-    Utility.Corner(Preview, 6)
-    Utility.Stroke(Preview, Theme.Stroke, 1)
-
-    -- Simple RGB slider popout
-    local Popout = Utility.Create("Frame", {
+    
+    self.Container = Utility:Create("ScrollingFrame", {
+        Parent = self.Instance,
         Size = UDim2.new(1, -20, 0, 0),
-        Position = UDim2.new(0, 10, 0, 34),
+        Position = UDim2.new(0, 10, 0, 45),
         BackgroundTransparency = 1,
-        ClipsDescendants = true,
-        Parent = Holder,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Nevora.Theme.Accent,
+        CanvasSize = UDim2.new(0, 0, 0, 0)
     })
-    local popOpen = false
-
-    local function makeChannel(labelText, order, initVal)
-        local Row = Utility.Create("Frame", {
-            Size = UDim2.new(1, 0, 0, 20),
-            Position = UDim2.new(0, 0, 0, order * 24),
-            BackgroundTransparency = 1,
-            Parent = Popout,
-        })
-        Utility.Create("TextLabel", {
-            Text = labelText,
-            Font = Enum.Font.Gotham,
-            TextSize = 11,
-            TextColor3 = Theme.SubText,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(0, 20, 1, 0),
-            Parent = Row,
-        })
-        local Bar = Utility.Create("Frame", {
-            Size = UDim2.new(1, -30, 0, 6),
-            Position = UDim2.new(0, 22, 0.5, -3),
-            BackgroundColor3 = Theme.Stroke,
-            Parent = Row,
-        })
-        Utility.Corner(Bar, 999)
-        local Fill = Utility.Create("Frame", {
-            Size = UDim2.new(initVal / 255, 0, 1, 0),
-            BackgroundColor3 = Theme.Accent,
-            Parent = Bar,
-        })
-        Utility.Corner(Fill, 999)
-        return Bar, Fill
+    
+    self.ListLayout = Utility:Create("UIListLayout", {
+        Parent = self.Container,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 5)
+    })
+    
+    local OptionButtons = {}
+    
+    local function UpdateCanvas()
+        self.Container.CanvasSize = UDim2.new(0, 0, 0, self.ListLayout.AbsoluteContentSize.Y)
     end
-
-    local r, g, b = math.floor(color.R*255), math.floor(color.G*255), math.floor(color.B*255)
-    local rBar, rFill = makeChannel("R", 0, r)
-    local gBar, gFill = makeChannel("G", 1, g)
-    local bBar, bFill = makeChannel("B", 2, b)
-
-    local function updateColor()
-        color = Color3.fromRGB(r, g, b)
-        Preview.BackgroundColor3 = color
-        local ok, err = pcall(callback, color)
-        if not ok then warn("[Nevora Hub] ColorPicker callback error: " .. tostring(err)) end
+    
+    local function ToggleDropdown()
+        self.IsOpen = not self.IsOpen
+        local targetSize = self.IsOpen and UDim2.new(1, 0, 0, 45 + math.min(#self.Options * 30, 150) + 10) or UDim2.new(1, 0, 0, 45)
+        local iconText = self.IsOpen and "-" or "+"
+        
+        Utility:Tween(self.Instance, { Size = targetSize }, 0.3, Enum.EasingStyle.Quint)
+        Utility:Tween(self.Container, { Size = UDim2.new(1, -20, 0, math.min(#self.Options * 30, 150)) }, 0.3, Enum.EasingStyle.Quint)
+        self.Icon.Text = iconText
+        
+        if self.IsOpen then
+            Utility:Tween(self.Stroke, { Color = Nevora.Theme.Accent }, 0.3)
+        else
+            Utility:Tween(self.Stroke, { Color = Nevora.Theme.Border }, 0.3)
+        end
     end
-
-    local function bindChannel(bar, fill, setter)
-        local dragging = false
-        bar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
-            end
-        end)
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-        end)
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local rel = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-                fill.Size = UDim2.new(rel, 0, 1, 0)
-                setter(math.floor(rel * 255))
-                updateColor()
-            end
-        end)
+    
+    self.MainButton.MouseButton1Click:Connect(ToggleDropdown)
+    
+    function self:Refresh(newOptions)
+        self.Options = newOptions or {}
+        for _, btn in pairs(OptionButtons) do btn:Destroy() end
+        table.clear(OptionButtons)
+        
+        for i, option in ipairs(self.Options) do
+            local optBtn = Utility:Create("TextButton", {
+                Parent = self.Container,
+                Size = UDim2.new(1, 0, 0, 25),
+                BackgroundColor3 = Nevora.Theme.Background,
+                Text = "  " .. option,
+                TextColor3 = Nevora.Theme.TextMuted,
+                Font = Nevora.Theme.Font,
+                TextSize = 13,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                AutoButtonColor = false
+            })
+            Utility:Create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = optBtn })
+            
+            optBtn.MouseEnter:Connect(function()
+                Utility:Tween(optBtn, { BackgroundColor3 = Nevora.Theme.Hover, TextColor3 = Nevora.Theme.Text }, 0.2)
+            end)
+            optBtn.MouseLeave:Connect(function()
+                if self.Selected ~= option then
+                    Utility:Tween(optBtn, { BackgroundColor3 = Nevora.Theme.Background, TextColor3 = Nevora.Theme.TextMuted }, 0.2)
+                end
+            end)
+            
+            optBtn.MouseButton1Click:Connect(function()
+                self.Selected = option
+                self.SelectedLabel.Text = option
+                self.Callback(option)
+                ToggleDropdown()
+                
+                for _, btn in pairs(OptionButtons) do
+                    Utility:Tween(btn, { BackgroundColor3 = Nevora.Theme.Background, TextColor3 = Nevora.Theme.TextMuted }, 0.2)
+                end
+                Utility:Tween(optBtn, { BackgroundColor3 = Nevora.Theme.Hover, TextColor3 = Nevora.Theme.Accent }, 0.2)
+            end)
+            
+            table.insert(OptionButtons, optBtn)
+        end
+        UpdateCanvas()
     end
-    bindChannel(rBar, rFill, function(v) r = v end)
-    bindChannel(gBar, gFill, function(v) g = v end)
-    bindChannel(bBar, bFill, function(v) b = v end)
-
-    Preview.MouseButton1Click:Connect(function()
-        popOpen = not popOpen
-        Utility.Tween(Popout, TweenInfo.new(0.2, EASE, DIR), {Size = UDim2.new(1, -20, 0, popOpen and 76 or 0)})
-        Utility.Tween(Holder, TweenInfo.new(0.2, EASE, DIR), {Size = UDim2.new(1, 0, 0, popOpen and 118 or 34)})
-    end)
-
-    return {
-        Set = function(newColor)
-            color = newColor
-            Preview.BackgroundColor3 = newColor
-        end,
-        Get = function() return color end,
-    }
+    
+    self:Refresh(self.Options)
+    
+    return self
 end
 
---// ================= PROGRESS BAR =================
-function Tab:CreateProgressBar(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local min = config.Min or 0
-    local max = config.Max or 100
-    local value = config.Default or min
-
-    local Holder = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundColor3 = Theme.PanelLight,
-        Parent = self.Page,
+-- Keybind Component
+Components.Keybind = {}
+Components.Keybind.__index = Components.Keybind
+function Components.Keybind.new(parent, config)
+    local self = setmetatable({}, Components.Keybind)
+    self.Key = config.Default or Enum.KeyCode.Unknown
+    self.Callback = config.Callback or function() end
+    self.IsBinding = false
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Keybind_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundColor3 = Nevora.Theme.Container
     })
-    Utility.Corner(Holder, 8)
-
-    Utility.Create("TextLabel", {
-        Text = config.Name or "Progress",
-        Font = Enum.Font.GothamMedium,
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -120, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    self.BindButton = Utility:Create("TextButton", {
+        Parent = self.Instance,
+        Size = UDim2.new(0, 100, 0, 26),
+        Position = UDim2.new(1, -110, 0.5, -13),
+        BackgroundColor3 = Nevora.Theme.Background,
+        Text = self.Key == Enum.KeyCode.Unknown and "None" or self.Key.Name,
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.FontBold,
         TextSize = 12,
-        TextColor3 = Theme.Text,
+        AutoButtonColor = false
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = self.BindButton })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.BindButton })
+    
+    self.BindButton.MouseButton1Click:Connect(function()
+        self.IsBinding = true
+        self.BindButton.Text = "..."
+        Utility:Tween(self.BindButton, { BackgroundColor3 = Nevora.Theme.Hover }, 0.2)
+    end)
+    
+    GlobalConnections:Add("KeybindInput_" .. config.Name, UserInputService.InputBegan:Connect(function(input, processed)
+        if self.IsBinding then
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                local blacklisted = {
+                    Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D,
+                    Enum.KeyCode.Space, Enum.KeyCode.Escape, Enum.KeyCode.Tab, Enum.KeyCode.Backspace
+                }
+                if not table.find(blacklisted, input.KeyCode) then
+                    self.Key = input.KeyCode
+                    self.BindButton.Text = self.Key.Name
+                else
+                    self.BindButton.Text = "None"
+                    self.Key = Enum.KeyCode.Unknown
+                end
+            end
+            
+            self.IsBinding = false
+            Utility:Tween(self.BindButton, { BackgroundColor3 = Nevora.Theme.Background }, 0.2)
+            
+        elseif not processed and input.KeyCode == self.Key and self.Key ~= Enum.KeyCode.Unknown then
+            self.Callback()
+        end
+    end))
+    
+    return self
+end
+
+-- Progress Bar Component
+Components.ProgressBar = {}
+Components.ProgressBar.__index = Components.ProgressBar
+function Components.ProgressBar.new(parent, config)
+    local self = setmetatable({}, Components.ProgressBar)
+    self.Max = config.Max or 100
+    self.Value = config.Default or 0
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Progress_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 45),
+        BackgroundColor3 = Nevora.Theme.Container
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 10, 0, 5),
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 4),
-        Size = UDim2.new(1, -24, 0, 14),
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    self.Percentage = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(0, 50, 0, 20),
+        Position = UDim2.new(1, -60, 0, 5),
+        BackgroundTransparency = 1,
+        Text = tostring(math.floor((self.Value / self.Max) * 100)) .. "%",
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Right
+    })
+    
+    self.Track = Utility:Create("Frame", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 0, 8),
+        Position = UDim2.new(0, 10, 0, 30),
+        BackgroundColor3 = Nevora.Theme.ToggleOff
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = self.Track })
+    
+    self.Fill = Utility:Create("Frame", {
+        Parent = self.Track,
+        Size = UDim2.new(math.clamp(self.Value / self.Max, 0, 1), 0, 1, 0),
+        BackgroundColor3 = Nevora.Theme.Accent
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = self.Fill })
+    
+    return self
+end
+
+function Components.ProgressBar:Update(newValue)
+    self.Value = math.clamp(newValue, 0, self.Max)
+    local fillRatio = self.Value / self.Max
+    self.Percentage.Text = tostring(math.floor(fillRatio * 100)) .. "%"
+    Utility:Tween(self.Fill, { Size = UDim2.new(fillRatio, 0, 1, 0) }, 0.4, Enum.EasingStyle.Quint)
+end
+
+-- Color Picker Component
+Components.ColorPicker = {}
+Components.ColorPicker.__index = Components.ColorPicker
+function Components.ColorPicker.new(parent, config)
+    local self = setmetatable({}, Components.ColorPicker)
+    self.Default = config.Default or Color3.fromRGB(255, 255, 255)
+    self.Callback = config.Callback or function() end
+    self.IsOpen = false
+    
+    local H, S, V = self.Default:ToHSV()
+    self.Hue = H
+    self.Saturation = S
+    self.Value = V
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "ColorPicker_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundColor3 = Nevora.Theme.Container,
+        ClipsDescendants = true
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    self.Stroke = Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    self.MainButton = Utility:Create("TextButton", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundTransparency = 1,
+        Text = "",
+        AutoButtonColor = false
+    })
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.MainButton,
+        Size = UDim2.new(1, -60, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    self.ColorPreview = Utility:Create("Frame", {
+        Parent = self.MainButton,
+        Size = UDim2.new(0, 40, 0, 20),
+        Position = UDim2.new(1, -50, 0.5, -10),
+        BackgroundColor3 = self.Default
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = self.ColorPreview })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.ColorPreview })
+    
+    self.PickerContainer = Utility:Create("Frame", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 0, 120),
+        Position = UDim2.new(0, 10, 0, 45),
+        BackgroundTransparency = 1
+    })
+    
+    self.SVMap = Utility:Create("ImageButton", {
+        Parent = self.PickerContainer,
+        Size = UDim2.new(1, -30, 1, 0),
+        BackgroundColor3 = Color3.fromHSV(self.Hue, 1, 1),
+        Image = "rbxassetid://4155801252",
+        AutoButtonColor = false
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = self.SVMap })
+    
+    self.SVTracker = Utility:Create("Frame", {
+        Parent = self.SVMap,
+        Size = UDim2.new(0, 10, 0, 10),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(self.Saturation, 0, 1 - self.Value, 0),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = self.SVTracker })
+    Utility:Create("UIStroke", { Color = Color3.fromRGB(0, 0, 0), Thickness = 1, Parent = self.SVTracker })
+    
+    self.HueMap = Utility:Create("ImageButton", {
+        Parent = self.PickerContainer,
+        Size = UDim2.new(0, 20, 1, 0),
+        Position = UDim2.new(1, -20, 0, 0),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        Image = "rbxassetid://3285244837",
+        AutoButtonColor = false
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = self.HueMap })
+    
+    self.HueTracker = Utility:Create("Frame", {
+        Parent = self.HueMap,
+        Size = UDim2.new(1, 2, 0, 6),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 1 - self.Hue, 0),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 2), Parent = self.HueTracker })
+    Utility:Create("UIStroke", { Color = Color3.fromRGB(0, 0, 0), Thickness = 1, Parent = self.HueTracker })
+    
+    self.MainButton.MouseButton1Click:Connect(function()
+        self.IsOpen = not self.IsOpen
+        local targetSize = self.IsOpen and UDim2.new(1, 0, 0, 175) or UDim2.new(1, 0, 0, 40)
+        Utility:Tween(self.Instance, { Size = targetSize }, 0.3, Enum.EasingStyle.Quint)
+        Utility:Tween(self.Stroke, { Color = self.IsOpen and Nevora.Theme.Accent or Nevora.Theme.Border }, 0.3)
+    end)
+    
+    local function UpdateColor()
+        local color = Color3.fromHSV(self.Hue, self.Saturation, self.Value)
+        self.SVMap.BackgroundColor3 = Color3.fromHSV(self.Hue, 1, 1)
+        self.ColorPreview.BackgroundColor3 = color
+        self.Callback(color)
+    end
+    
+    local isSVDragging = false
+    self.SVMap.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isSVDragging = true
+            local posX = math.clamp((input.Position.X - self.SVMap.AbsolutePosition.X) / self.SVMap.AbsoluteSize.X, 0, 1)
+            local posY = math.clamp((input.Position.Y - self.SVMap.AbsolutePosition.Y) / self.SVMap.AbsoluteSize.Y, 0, 1)
+            self.Saturation = posX
+            self.Value = 1 - posY
+            Utility:Tween(self.SVTracker, { Position = UDim2.new(posX, 0, posY, 0) }, 0.1)
+            UpdateColor()
+        end
+    end)
+    
+    local isHueDragging = false
+    self.HueMap.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isHueDragging = true
+            local posY = math.clamp((input.Position.Y - self.HueMap.AbsolutePosition.Y) / self.HueMap.AbsoluteSize.Y, 0, 1)
+            self.Hue = 1 - posY
+            Utility:Tween(self.HueTracker, { Position = UDim2.new(0.5, 0, posY, 0) }, 0.1)
+            UpdateColor()
+        end
+    end)
+    
+    GlobalConnections:Add("ColorPickerInputChanged_" .. config.Name, UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            if isSVDragging then
+                local posX = math.clamp((input.Position.X - self.SVMap.AbsolutePosition.X) / self.SVMap.AbsoluteSize.X, 0, 1)
+                local posY = math.clamp((input.Position.Y - self.SVMap.AbsolutePosition.Y) / self.SVMap.AbsoluteSize.Y, 0, 1)
+                self.Saturation = posX
+                self.Value = 1 - posY
+                Utility:Tween(self.SVTracker, { Position = UDim2.new(posX, 0, posY, 0) }, 0.05)
+                UpdateColor()
+            elseif isHueDragging then
+                local posY = math.clamp((input.Position.Y - self.HueMap.AbsolutePosition.Y) / self.HueMap.AbsoluteSize.Y, 0, 1)
+                self.Hue = 1 - posY
+                Utility:Tween(self.HueTracker, { Position = UDim2.new(0.5, 0, posY, 0) }, 0.05)
+                UpdateColor()
+            end
+        end
+    end))
+    
+    GlobalConnections:Add("ColorPickerInputEnded_" .. config.Name, UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isSVDragging = false
+            isHueDragging = false
+        end
+    end))
+    
+    return self
+end
+
+-- Input Vector3 Component
+Components.InputVector3 = {}
+Components.InputVector3.__index = Components.InputVector3
+function Components.InputVector3.new(parent, config)
+    local self = setmetatable({}, Components.InputVector3)
+    self.Value = config.Default or Vector3.new(0, 0, 0)
+    self.Callback = config.Callback or function() end
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Vector3_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 60),
+        BackgroundColor3 = Nevora.Theme.Container
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 10, 0, 5),
+        BackgroundTransparency = 1,
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    self.InputContainer = Utility:Create("Frame", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 0, 25),
+        Position = UDim2.new(0, 10, 0, 28),
+        BackgroundTransparency = 1
+    })
+    
+    Utility:Create("UIListLayout", {
+        Parent = self.InputContainer,
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 10)
+    })
+    
+    local function CreateAxis(axisName, defaultVal)
+        local box = Utility:Create("Frame", {
+            Parent = self.InputContainer,
+            Size = UDim2.new(0.333, -7, 1, 0),
+            BackgroundColor3 = Nevora.Theme.Background
+        })
+        Utility:Create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = box })
+        local stroke = Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = box })
+        
+        Utility:Create("TextLabel", {
+            Parent = box,
+            Size = UDim2.new(0, 15, 1, 0),
+            Position = UDim2.new(0, 5, 0, 0),
+            BackgroundTransparency = 1,
+            Text = axisName .. ":",
+            TextColor3 = Nevora.Theme.TextMuted,
+            Font = Nevora.Theme.FontBold,
+            TextSize = 12
+        })
+        
+        local input = Utility:Create("TextBox", {
+            Parent = box,
+            Size = UDim2.new(1, -25, 1, 0),
+            Position = UDim2.new(0, 20, 0, 0),
+            BackgroundTransparency = 1,
+            Text = tostring(defaultVal),
+            TextColor3 = Nevora.Theme.Accent,
+            Font = Nevora.Theme.Font,
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ClearTextOnFocus = false
+        })
+        
+        input.Focused:Connect(function() Utility:Tween(stroke, { Color = Nevora.Theme.Accent }, 0.3) end)
+        input.FocusLost:Connect(function() Utility:Tween(stroke, { Color = Nevora.Theme.Border }, 0.3) end)
+        
+        return input
+    end
+    
+    self.InputX = CreateAxis("X", self.Value.X)
+    self.InputY = CreateAxis("Y", self.Value.Y)
+    self.InputZ = CreateAxis("Z", self.Value.Z)
+    
+    local function ProcessInput()
+        local x = tonumber(self.InputX.Text) or self.Value.X
+        local y = tonumber(self.InputY.Text) or self.Value.Y
+        local z = tonumber(self.InputZ.Text) or self.Value.Z
+        self.InputX.Text = tostring(x)
+        self.InputY.Text = tostring(y)
+        self.InputZ.Text = tostring(z)
+        self.Value = Vector3.new(x, y, z)
+        self.Callback(self.Value)
+    end
+    
+    self.InputX.FocusLost:Connect(ProcessInput)
+    self.InputY.FocusLost:Connect(ProcessInput)
+    self.InputZ.FocusLost:Connect(ProcessInput)
+    
+    return self
+end
+
+-- Checkbox Component
+Components.Checkbox = {}
+Components.Checkbox.__index = Components.Checkbox
+function Components.Checkbox.new(parent, config)
+    local self = setmetatable({}, Components.Checkbox)
+    self.State = config.Default or false
+    self.Callback = config.Callback or function() end
+    
+    self.Instance = Utility:Create("TextButton", {
+        Name = "Checkbox_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 35),
+        BackgroundColor3 = Nevora.Theme.Container,
+        Text = "",
+        AutoButtonColor = false
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    self.Box = Utility:Create("Frame", {
+        Parent = self.Instance,
+        Size = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new(0, 10, 0.5, -10),
+        BackgroundColor3 = self.State and Nevora.Theme.Accent or Nevora.Theme.Background
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = self.Box })
+    
+    self.Checkmark = Utility:Create("TextLabel", {
+        Parent = self.Box,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "✓",
+        TextColor3 = Nevora.Theme.Background,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 14,
+        TextTransparency = self.State and 0 or 1
+    })
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -50, 1, 0),
+        Position = UDim2.new(0, 40, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    self.Instance.MouseButton1Click:Connect(function()
+        self.State = not self.State
+        Utility:Tween(self.Box, { BackgroundColor3 = self.State and Nevora.Theme.Accent or Nevora.Theme.Background }, 0.2)
+        Utility:Tween(self.Checkmark, { TextTransparency = self.State and 0 or 1 }, 0.2)
+        self.Callback(self.State)
+    end)
+    
+    return self
+end
+
+-- Divider Component
+Components.Divider = {}
+Components.Divider.__index = Components.Divider
+function Components.Divider.new(parent, text)
+    local self = setmetatable({}, Components.Divider)
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Divider",
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 20),
+        BackgroundTransparency = 1
+    })
+    
+    self.LineLeft = Utility:Create("Frame", {
+        Parent = self.Instance,
+        Size = UDim2.new(0.5, text and -30 or 0, 0, 1),
+        Position = UDim2.new(0, 0, 0.5, 0),
+        BackgroundColor3 = Nevora.Theme.Border,
+        BorderSizePixel = 0
+    })
+    
+    if text then
+        self.Label = Utility:Create("TextLabel", {
+            Parent = self.Instance,
+            Size = UDim2.new(0, 60, 1, 0),
+            Position = UDim2.new(0.5, -30, 0, 0),
+            BackgroundTransparency = 1,
+            Text = text,
+            TextColor3 = Nevora.Theme.TextMuted,
+            Font = Nevora.Theme.FontBold,
+            TextSize = 12
+        })
+        
+        self.LineRight = Utility:Create("Frame", {
+            Parent = self.Instance,
+            Size = UDim2.new(0.5, -30, 0, 1),
+            Position = UDim2.new(1, 0, 0.5, 0),
+            AnchorPoint = Vector2.new(1, 0),
+            BackgroundColor3 = Nevora.Theme.Border,
+            BorderSizePixel = 0
+        })
+    end
+    
+    return self
+end
+
+-- Label Component
+Components.Label = {}
+Components.Label.__index = Components.Label
+function Components.Label.new(parent, text)
+    local self = setmetatable({}, Components.Label)
+    
+    self.Instance = Utility:Create("TextLabel", {
+        Name = "Label",
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 20),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Holder,
+        TextWrapped = true
     })
-
-    local Bar = Utility.Create("Frame", {
-        Size = UDim2.new(1, -24, 0, 6),
-        Position = UDim2.new(0, 12, 1, -14),
-        BackgroundColor3 = Theme.Stroke,
-        Parent = Holder,
-    })
-    Utility.Corner(Bar, 999)
-
-    local Fill = Utility.Create("Frame", {
-        Size = UDim2.new((value - min) / (max - min), 0, 1, 0),
-        BackgroundColor3 = Theme.Accent,
-        Parent = Bar,
-    })
-    Utility.Corner(Fill, 999)
-
-    return {
-        Set = function(newValue)
-            newValue = math.clamp(newValue, min, max)
-            Utility.Tween(Fill, TweenInfo.new(0.25, EASE, DIR), {Size = UDim2.new((newValue - min) / (max - min), 0, 1, 0)})
-        end,
-    }
+    
+    return self
 end
 
---// ================= IMAGE =================
-function Tab:CreateImage(config)
-    config = config or {}
-    local Theme = self.Hub.Theme
-    local Holder = Utility.Create("Frame", {
-        Size = UDim2.new(1, 0, 0, config.Height or 100),
-        BackgroundColor3 = Theme.PanelLight,
-        Parent = self.Page,
-    })
-    Utility.Corner(Holder, 8)
-    Utility.Create("ImageLabel", {
-        Image = config.Image or "",
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, -16, 1, -16),
-        Position = UDim2.new(0, 8, 0, 8),
-        Parent = Holder,
-    })
-    return Holder
+function Components.Label:SetText(newText)
+    self.Instance.Text = newText
 end
 
---// ================= LOADING SCREEN (static helper) =================
-function NevoraHub.ShowLoadingScreen(config)
-    config = config or {}
-    local Theme = Themes.Dark
-
-    local ScreenGui = Utility.Create("ScreenGui", {
-        Name = "NevoraHub_Loading",
-        ResetOnSpawn = false,
-        Parent = CoreGui,
+-- Paragraph Component
+Components.Paragraph = {}
+Components.Paragraph.__index = Components.Paragraph
+function Components.Paragraph.new(parent, config)
+    local self = setmetatable({}, Components.Paragraph)
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Paragraph",
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundColor3 = Nevora.Theme.Container,
+        AutomaticSize = Enum.AutomaticSize.Y
     })
-    local ok = pcall(function() ScreenGui.Parent = CoreGui end)
-    if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
-
-    local Frame = Utility.Create("Frame", {
-        Size = UDim2.fromScale(1, 1),
-        BackgroundColor3 = Theme.Background,
-        BackgroundTransparency = 0,
-        Parent = ScreenGui,
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    Utility:Create("UIPadding", {
+        Parent = self.Instance,
+        PaddingTop = UDim.new(0, 10),
+        PaddingBottom = UDim.new(0, 10),
+        PaddingLeft = UDim.new(0, 10),
+        PaddingRight = UDim.new(0, 10)
     })
-
-    local Title = Utility.Create("TextLabel", {
-        Text = config.Title or "Nevora Hub",
-        Font = Enum.Font.GothamBold,
-        TextSize = 28,
-        TextColor3 = Theme.Text,
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, 0, 0, 20),
         BackgroundTransparency = 1,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.46),
-        Size = UDim2.new(0, 400, 0, 40),
-        TextTransparency = 1,
-        Parent = Frame,
+        Text = config.Title or "Information",
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
     })
-    Utility.Tween(Title, TweenInfo.new(0.6, EASE, DIR), {TextTransparency = 0})
+    
+    self.Desc = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, 0, 0, 0),
+        Position = UDim2.new(0, 0, 0, 25),
+        BackgroundTransparency = 1,
+        Text = config.Content or "",
+        TextColor3 = Nevora.Theme.TextMuted,
+        Font = Nevora.Theme.Font,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        TextWrapped = true,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    
+    return self
+end
 
-    local BarBg = Utility.Create("Frame", {
-        Size = UDim2.new(0, 240, 0, 4),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.54),
-        BackgroundColor3 = Theme.Stroke,
-        Parent = Frame,
+-- Multi-Dropdown Component
+Components.MultiDropdown = {}
+Components.MultiDropdown.__index = Components.MultiDropdown
+function Components.MultiDropdown.new(parent, config)
+    local self = setmetatable({}, Components.MultiDropdown)
+    self.Options = config.Options or {}
+    self.Selected = config.Default or {}
+    self.Callback = config.Callback or function() end
+    self.IsOpen = false
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "MultiDropdown_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 45),
+        BackgroundColor3 = Nevora.Theme.Container,
+        ClipsDescendants = true
     })
-    Utility.Corner(BarBg, 999)
-    local BarFill = Utility.Create("Frame", {
-        Size = UDim2.new(0, 0, 1, 0),
-        BackgroundColor3 = Theme.Accent,
-        Parent = BarBg,
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    self.Stroke = Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    self.MainButton = Utility:Create("TextButton", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, 0, 0, 45),
+        BackgroundTransparency = 1,
+        Text = "",
+        AutoButtonColor = false
     })
-    Utility.Corner(BarFill, 999)
-    Utility.Tween(BarFill, TweenInfo.new(1.2, EASE, DIR), {Size = UDim2.new(1, 0, 1, 0)})
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.MainButton,
+        Size = UDim2.new(0.5, -10, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Name,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    local function GetSelectedText()
+        if #self.Selected == 0 then return "None" end
+        if #self.Selected == 1 then return self.Selected[1] end
+        if #self.Selected == #self.Options then return "All Selected" end
+        return tostring(#self.Selected) .. " Selected"
+    end
+    
+    self.SelectedLabel = Utility:Create("TextLabel", {
+        Parent = self.MainButton,
+        Size = UDim2.new(0.5, -30, 1, 0),
+        Position = UDim2.new(0.5, 0, 0, 0),
+        BackgroundTransparency = 1,
+        Text = GetSelectedText(),
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.Font,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Right
+    })
+    
+    self.Icon = Utility:Create("TextLabel", {
+        Parent = self.MainButton,
+        Size = UDim2.new(0, 20, 1, 0),
+        Position = UDim2.new(1, -25, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "+",
+        TextColor3 = Nevora.Theme.TextMuted,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 18
+    })
+    
+    self.Container = Utility:Create("ScrollingFrame", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -20, 0, 0),
+        Position = UDim2.new(0, 10, 0, 45),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Nevora.Theme.Accent,
+        CanvasSize = UDim2.new(0, 0, 0, 0)
+    })
+    
+    self.ListLayout = Utility:Create("UIListLayout", {
+        Parent = self.Container,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 5)
+    })
+    
+    local OptionButtons = {}
+    
+    local function ToggleDropdown()
+        self.IsOpen = not self.IsOpen
+        local targetSize = self.IsOpen and UDim2.new(1, 0, 0, 45 + math.min(#self.Options * 30, 150) + 10) or UDim2.new(1, 0, 0, 45)
+        self.Icon.Text = self.IsOpen and "-" or "+"
+        
+        Utility:Tween(self.Instance, { Size = targetSize }, 0.3, Enum.EasingStyle.Quint)
+        Utility:Tween(self.Container, { Size = UDim2.new(1, -20, 0, math.min(#self.Options * 30, 150)) }, 0.3, Enum.EasingStyle.Quint)
+        Utility:Tween(self.Stroke, { Color = self.IsOpen and Nevora.Theme.Accent or Nevora.Theme.Border }, 0.3)
+    end
+    
+    self.MainButton.MouseButton1Click:Connect(ToggleDropdown)
+    
+    function self:Refresh(newOptions)
+        self.Options = newOptions or {}
+        for _, btn in pairs(OptionButtons) do btn.Instance:Destroy() end
+        table.clear(OptionButtons)
+        
+        for _, option in ipairs(self.Options) do
+            local isSelected = table.find(self.Selected, option) ~= nil
+            
+            local optBtn = Utility:Create("TextButton", {
+                Parent = self.Container,
+                Size = UDim2.new(1, 0, 0, 25),
+                BackgroundColor3 = isSelected and Nevora.Theme.Hover or Nevora.Theme.Background,
+                Text = "",
+                AutoButtonColor = false
+            })
+            Utility:Create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = optBtn })
+            
+            local optText = Utility:Create("TextLabel", {
+                Parent = optBtn,
+                Size = UDim2.new(1, -30, 1, 0),
+                Position = UDim2.new(0, 10, 0, 0),
+                BackgroundTransparency = 1,
+                Text = option,
+                TextColor3 = isSelected and Nevora.Theme.Accent or Nevora.Theme.TextMuted,
+                Font = Nevora.Theme.Font,
+                TextSize = 13,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+            
+            local checkmark = Utility:Create("TextLabel", {
+                Parent = optBtn,
+                Size = UDim2.new(0, 20, 1, 0),
+                Position = UDim2.new(1, -25, 0, 0),
+                BackgroundTransparency = 1,
+                Text = "✓",
+                TextColor3 = Nevora.Theme.Accent,
+                Font = Nevora.Theme.FontBold,
+                TextSize = 14,
+                TextTransparency = isSelected and 0 or 1
+            })
+            
+            optBtn.MouseButton1Click:Connect(function()
+                local index = table.find(self.Selected, option)
+                if index then
+                    table.remove(self.Selected, index)
+                    Utility:Tween(optBtn, { BackgroundColor3 = Nevora.Theme.Background }, 0.2)
+                    Utility:Tween(optText, { TextColor3 = Nevora.Theme.TextMuted }, 0.2)
+                    Utility:Tween(checkmark, { TextTransparency = 1 }, 0.2)
+                else
+                    table.insert(self.Selected, option)
+                    Utility:Tween(optBtn, { BackgroundColor3 = Nevora.Theme.Hover }, 0.2)
+                    Utility:Tween(optText, { TextColor3 = Nevora.Theme.Accent }, 0.2)
+                    Utility:Tween(checkmark, { TextTransparency = 0 }, 0.2)
+                end
+                
+                self.SelectedLabel.Text = GetSelectedText()
+                self.Callback(self.Selected)
+            end)
+            
+            table.insert(OptionButtons, { Instance = optBtn })
+        end
+        self.Container.CanvasSize = UDim2.new(0, 0, 0, self.ListLayout.AbsoluteContentSize.Y)
+    end
+    
+    self:Refresh(self.Options)
+    return self
+end
 
-    task.delay(config.Duration or 1.4, function()
-        local tw = Utility.Tween(Frame, TweenInfo.new(0.4, EASE, DIR), {BackgroundTransparency = 1})
-        Utility.Tween(Title, TweenInfo.new(0.3), {TextTransparency = 1})
-        tw.Completed:Connect(function()
-            ScreenGui:Destroy()
+-- Table Component
+Components.Table = {}
+Components.Table.__index = Components.Table
+function Components.Table.new(parent, config)
+    local self = setmetatable({}, Components.Table)
+    self.Columns = config.Columns or {"Col 1", "Col 2"}
+    self.Rows = {}
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Table_" .. (config.Name or "Grid"),
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 200),
+        BackgroundColor3 = Nevora.Theme.Container,
+        ClipsDescendants = true
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    local colWidth = 1 / #self.Columns
+    
+    self.HeaderFrame = Utility:Create("Frame", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, 0, 0, 30),
+        BackgroundColor3 = Nevora.Theme.Hover
+    })
+    Utility:Create("UIListLayout", {
+        Parent = self.HeaderFrame,
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+    
+    for _, colName in ipairs(self.Columns) do
+        Utility:Create("TextLabel", {
+            Parent = self.HeaderFrame,
+            Size = UDim2.new(colWidth, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = colName,
+            TextColor3 = Nevora.Theme.Accent,
+            Font = Nevora.Theme.FontBold,
+            TextSize = 13
+        })
+    end
+    
+    self.Container = Utility:Create("ScrollingFrame", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, 0, 1, -30),
+        Position = UDim2.new(0, 0, 0, 30),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Nevora.Theme.Accent,
+        AutomaticCanvasSize = Enum.AutomaticSize.Y
+    })
+    Utility:Create("UIListLayout", {
+        Parent = self.Container,
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+    
+    if config.DefaultRows then
+        for _, rowData in ipairs(config.DefaultRows) do self:AddRow(rowData) end
+    end
+    
+    return self
+end
+
+function Components.Table:AddRow(rowData)
+    local colWidth = 1 / #self.Columns
+    local rowFrame = Utility:Create("Frame", {
+        Parent = self.Container,
+        Size = UDim2.new(1, 0, 0, 30),
+        BackgroundTransparency = 1
+    })
+    
+    local isAlt = #self.Rows % 2 == 1
+    if isAlt then
+        rowFrame.BackgroundColor3 = Nevora.Theme.Background
+        rowFrame.BackgroundTransparency = 0.5
+    end
+    
+    Utility:Create("UIListLayout", {
+        Parent = rowFrame,
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+    
+    for i = 1, #self.Columns do
+        local cellText = rowData[i] and tostring(rowData[i]) or "-"
+        Utility:Create("TextLabel", {
+            Parent = rowFrame,
+            Size = UDim2.new(colWidth, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = cellText,
+            TextColor3 = Nevora.Theme.Text,
+            Font = Nevora.Theme.Font,
+            TextSize = 12
+        })
+    end
+    
+    table.insert(self.Rows, rowFrame)
+end
+
+function Components.Table:Clear()
+    for _, row in ipairs(self.Rows) do row:Destroy() end
+    table.clear(self.Rows)
+end
+
+-- Console Component
+Components.Console = {}
+Components.Console.__index = Components.Console
+function Components.Console.new(parent, config)
+    local self = setmetatable({}, Components.Console)
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Console_" .. config.Name,
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, config.Height or 150),
+        BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.Instance })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.Instance })
+    
+    self.Container = Utility:Create("ScrollingFrame", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, -10, 1, -10),
+        Position = UDim2.new(0, 5, 0, 5),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Nevora.Theme.TextMuted,
+        AutomaticCanvasSize = Enum.AutomaticSize.Y
+    })
+    self.Layout = Utility:Create("UIListLayout", {
+        Parent = self.Container,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 2)
+    })
+    
+    return self
+end
+
+function Components.Console:AddLog(msg, color, prefix)
+    local timeStamp = os.date("%H:%M:%S")
+    local logLbl = Utility:Create("TextLabel", {
+        Parent = self.Container,
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundTransparency = 1,
+        RichText = true,
+        Text = string.format("<font color='#555555'>[%s]</font> <b>%s</b> %s", timeStamp, prefix, msg),
+        TextColor3 = color,
+        Font = Enum.Font.Code,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextWrapped = true,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    task.wait()
+    self.Container.CanvasPosition = Vector2.new(0, self.Layout.AbsoluteContentSize.Y)
+end
+
+function Components.Console:Log(msg) self:AddLog(msg, Nevora.Theme.Text, "[INFO]") end
+function Components.Console:Warn(msg) self:AddLog(msg, Color3.fromRGB(255, 200, 0), "[WARN]") end
+function Components.Console:Error(msg) self:AddLog(msg, Color3.fromRGB(255, 80, 80), "[ERR]") end
+function Components.Console:Clear()
+    for _, child in ipairs(self.Container:GetChildren()) do
+        if child:IsA("TextLabel") then child:Destroy() end
+    end
+end
+
+-- [ TOOLTIP ENGINE ]
+Nevora.TooltipEngine = {}
+local TooltipGui = Utility:Create("ScreenGui", {
+    Name = "NevoraTooltip",
+    Parent = TargetParent,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+})
+
+local TooltipFrame = Utility:Create("Frame", {
+    Parent = TooltipGui,
+    BackgroundColor3 = Nevora.Theme.Hover,
+    AutomaticSize = Enum.AutomaticSize.XY,
+    Visible = false,
+    ZIndex = 100
+})
+Utility:Create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = TooltipFrame })
+Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = TooltipFrame })
+Utility:Create("UIPadding", { Parent = TooltipFrame, PaddingTop = UDim.new(0,4), PaddingBottom = UDim.new(0,4), PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8) })
+
+local TooltipText = Utility:Create("TextLabel", {
+    Parent = TooltipFrame,
+    BackgroundTransparency = 1,
+    Text = "",
+    TextColor3 = Nevora.Theme.Text,
+    Font = Nevora.Theme.Font,
+    TextSize = 12,
+    AutomaticSize = Enum.AutomaticSize.XY
+})
+
+local currentTooltipConnection = nil
+function Nevora.TooltipEngine:Add(instance, text)
+    instance.MouseEnter:Connect(function()
+        TooltipText.Text = text
+        TooltipFrame.Visible = true
+        
+        if currentTooltipConnection then currentTooltipConnection:Disconnect() end
+        currentTooltipConnection = RunService.RenderStepped:Connect(function()
+            local mousePos = UserInputService:GetMouseLocation()
+            TooltipFrame.Position = UDim2.new(0, mousePos.X + 15, 0, mousePos.Y - 20)
+        end)
+    end)
+    
+    instance.MouseLeave:Connect(function()
+        TooltipFrame.Visible = false
+        if currentTooltipConnection then
+            currentTooltipConnection:Disconnect()
+            currentTooltipConnection = nil
+        end
+    end)
+end
+
+function Utility:ApplyTooltip(instance, config)
+    if config and config.Tooltip then
+        Nevora.TooltipEngine:Add(instance, config.Tooltip)
+    end
+end
+
+-- [ NOTIFICATION ENGINE ]
+Nevora.Notifications = {}
+local NotifContainer = Utility:Create("ScreenGui", {
+    Name = "NevoraNotifications",
+    Parent = TargetParent,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+})
+
+local NotifLayout = Utility:Create("Frame", {
+    Name = "Layout",
+    Parent = NotifContainer,
+    Size = UDim2.new(0, 300, 1, -40),
+    Position = UDim2.new(1, -320, 0, 20),
+    BackgroundTransparency = 1
+})
+Utility:Create("UIListLayout", {
+    Parent = NotifLayout,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0, 10),
+    VerticalAlignment = Enum.VerticalAlignment.Bottom
+})
+
+function Nevora:Notify(config)
+    local title = config.Title or "Notification"
+    local desc = config.Description or "..."
+    local duration = config.Duration or 3
+    
+    local notifFrame = Utility:Create("Frame", {
+        Parent = NotifLayout,
+        Size = UDim2.new(1, 0, 0, 70),
+        BackgroundColor3 = Nevora.Theme.Container,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, 50, 0, 0)
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = notifFrame })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = notifFrame })
+    
+    local titleLabel = Utility:Create("TextLabel", {
+        Parent = notifFrame,
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 10, 0, 10),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTransparency = 1
+    })
+    
+    local descLabel = Utility:Create("TextLabel", {
+        Parent = notifFrame,
+        Size = UDim2.new(1, -20, 0, 30),
+        Position = UDim2.new(0, 10, 0, 30),
+        BackgroundTransparency = 1,
+        Text = desc,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextWrapped = true,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        TextTransparency = 1
+    })
+    
+    local timeBar = Utility:Create("Frame", {
+        Parent = notifFrame,
+        Size = UDim2.new(1, 0, 0, 3),
+        Position = UDim2.new(0, 0, 1, -3),
+        BackgroundColor3 = Nevora.Theme.Accent,
+        BackgroundTransparency = 1
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = timeBar })
+    
+    Utility:Tween(notifFrame, { BackgroundTransparency = 0, Position = UDim2.new(0, 0, 0, 0) }, 0.4, Enum.EasingStyle.Back)
+    Utility:Tween(titleLabel, { TextTransparency = 0 }, 0.4)
+    Utility:Tween(descLabel, { TextTransparency = 0 }, 0.4)
+    Utility:Tween(timeBar, { BackgroundTransparency = 0 }, 0.4)
+    
+    local progressTween = Utility:Tween(timeBar, { Size = UDim2.new(0, 0, 0, 3) }, duration, Enum.EasingStyle.Linear)
+    
+    progressTween.Completed:Connect(function()
+        Utility:Tween(titleLabel, { TextTransparency = 1 }, 0.3)
+        Utility:Tween(descLabel, { TextTransparency = 1 }, 0.3)
+        local outTween = Utility:Tween(notifFrame, { BackgroundTransparency = 1, Position = UDim2.new(1, 50, 0, 0) }, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        outTween.Completed:Connect(function()
+            notifFrame:Destroy()
         end)
     end)
 end
 
-return NevoraHub
+-- [ DIALOG ENGINE ]
+function Nevora:PromptDialog(config)
+    local title = config.Title or "Confirmation"
+    local desc = config.Description or "Are you sure?"
+    local onConfirm = config.OnConfirm or function() end
+    local onCancel = config.OnCancel or function() end
+    
+    local overlay = Utility:Create("Frame", {
+        Parent = NotifContainer,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundTransparency = 1,
+        Active = true
+    })
+    
+    local dialogBox = Utility:Create("Frame", {
+        Parent = overlay,
+        Size = UDim2.new(0, 350, 0, 150),
+        Position = UDim2.new(0.5, -175, 0.5, -75),
+        BackgroundColor3 = Nevora.Theme.Container,
+        BackgroundTransparency = 1
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 10), Parent = dialogBox })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = dialogBox })
+    
+    local titleLbl = Utility:Create("TextLabel", {
+        Parent = dialogBox,
+        Size = UDim2.new(1, 0, 0, 30),
+        Position = UDim2.new(0, 0, 0, 10),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 18,
+        TextTransparency = 1
+    })
+    
+    local descLbl = Utility:Create("TextLabel", {
+        Parent = dialogBox,
+        Size = UDim2.new(1, -40, 0, 40),
+        Position = UDim2.new(0, 20, 0, 45),
+        BackgroundTransparency = 1,
+        Text = desc,
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextWrapped = true,
+        TextTransparency = 1
+    })
+    
+    local btnContainer = Utility:Create("Frame", {
+        Parent = dialogBox,
+        Size = UDim2.new(1, -40, 0, 35),
+        Position = UDim2.new(0, 20, 1, -45),
+        BackgroundTransparency = 1
+    })
+    Utility:Create("UIListLayout", {
+        Parent = btnContainer,
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        Padding = UDim.new(0, 10)
+    })
+    
+    local btnConfirm = Utility:Create("TextButton", {
+        Parent = btnContainer,
+        Size = UDim2.new(0.5, -5, 1, 0),
+        BackgroundColor3 = Nevora.Theme.Accent,
+        Text = "Confirm",
+        TextColor3 = Nevora.Theme.Background,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        TextTransparency = 1,
+        AutoButtonColor = false
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = btnConfirm })
+    
+    local btnCancel = Utility:Create("TextButton", {
+        Parent = btnContainer,
+        Size = UDim2.new(0.5, -5, 1, 0),
+        BackgroundColor3 = Nevora.Theme.Hover,
+        Text = "Cancel",
+        TextColor3 = Nevora.Theme.Text,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        TextTransparency = 1,
+        AutoButtonColor = false
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = btnCancel })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = btnCancel })
+    
+    dialogBox.Position = UDim2.new(0.5, -175, 0.5, -60)
+    Utility:Tween(overlay, { BackgroundTransparency = 0.6 }, 0.3)
+    Utility:Tween(dialogBox, { BackgroundTransparency = 0, Position = UDim2.new(0.5, -175, 0.5, -75) }, 0.4, Enum.EasingStyle.Quint)
+    Utility:Tween(titleLbl, { TextTransparency = 0 }, 0.4)
+    Utility:Tween(descLbl, { TextTransparency = 0 }, 0.4)
+    Utility:Tween(btnConfirm, { BackgroundTransparency = 0, TextTransparency = 0 }, 0.4)
+    Utility:Tween(btnCancel, { BackgroundTransparency = 0, TextTransparency = 0 }, 0.4)
+    
+    local function CloseDialog()
+        Utility:Tween(overlay, { BackgroundTransparency = 1 }, 0.3)
+        local closeTween = Utility:Tween(dialogBox, { BackgroundTransparency = 1, Position = UDim2.new(0.5, -175, 0.5, -60) }, 0.3, Enum.EasingStyle.Quint)
+        Utility:Tween(titleLbl, { TextTransparency = 1 }, 0.3)
+        Utility:Tween(descLbl, { TextTransparency = 1 }, 0.3)
+        Utility:Tween(btnConfirm, { BackgroundTransparency = 1, TextTransparency = 1 }, 0.3)
+        Utility:Tween(btnCancel, { BackgroundTransparency = 1, TextTransparency = 1 }, 0.3)
+        
+        closeTween.Completed:Connect(function()
+            overlay:Destroy()
+        end)
+    end
+    
+    btnConfirm.MouseButton1Click:Connect(function()
+        onConfirm()
+        CloseDialog()
+    end)
+    
+    btnCancel.MouseButton1Click:Connect(function()
+        onCancel()
+        CloseDialog()
+    end)
+end
+
+-- [ SECTION MANAGER ]
+local Section = {}
+Section.__index = Section
+function Section.new(parent, title)
+    local self = setmetatable({}, Section)
+    
+    self.Instance = Utility:Create("Frame", {
+        Name = "Section_" .. title,
+        Parent = parent,
+        Size = UDim2.new(1, -20, 0, 0),
+        BackgroundColor3 = Nevora.Theme.Background,
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y
+    })
+    
+    Utility:Create("UIListLayout", {
+        Parent = self.Instance,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 8)
+    })
+    
+    self.Header = Utility:Create("TextLabel", {
+        Parent = self.Instance,
+        Size = UDim2.new(1, 0, 0, 20),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    return self
+end
+
+function Section:CreateButton(config) 
+    local comp = Components.Button.new(self.Instance, config) 
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp 
+end
+
+function Section:CreateToggle(config) 
+    local comp = Components.Toggle.new(self.Instance, config) 
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp 
+end
+
+function Section:CreateSlider(config) 
+    local comp = Components.Slider.new(self.Instance, config) 
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp 
+end
+
+function Section:CreateTextbox(config) 
+    local comp = Components.Textbox.new(self.Instance, config) 
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp 
+end
+
+function Section:CreateDropdown(config) 
+    local comp = Components.Dropdown.new(self.Instance, config) 
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp 
+end
+
+function Section:CreateKeybind(config) 
+    local comp = Components.Keybind.new(self.Instance, config) 
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp 
+end
+
+function Section:CreateProgressBar(config) 
+    local comp = Components.ProgressBar.new(self.Instance, config) 
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp 
+end
+
+function Section:CreateColorPicker(config) 
+    local comp = Components.ColorPicker.new(self.Instance, config) 
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp 
+end
+
+function Section:CreateInputVector3(config) 
+    local comp = Components.InputVector3.new(self.Instance, config) 
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp 
+end
+
+function Section:CreateCheckbox(config) 
+    local comp = Components.Checkbox.new(self.Instance, config) 
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp 
+end
+
+function Section:CreateDivider(text) return Components.Divider.new(self.Instance, text) end
+function Section:CreateLabel(text) return Components.Label.new(self.Instance, text) end
+function Section:CreateParagraph(config) return Components.Paragraph.new(self.Instance, config) end
+
+function Section:CreateMultiDropdown(config) 
+    local comp = Components.MultiDropdown.new(self.Instance, config)
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp
+end
+
+function Section:CreateTable(config) 
+    local comp = Components.Table.new(self.Instance, config)
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp
+end
+
+function Section:CreateConsole(config) 
+    local comp = Components.Console.new(self.Instance, config)
+    Utility:ApplyTooltip(comp.Instance, config)
+    return comp
+end
+
+-- [ TAB MANAGER ]
+local Tab = {}
+Tab.__index = Tab
+function Tab.new(window, title, icon)
+    local self = setmetatable({}, Tab)
+    self.Window = window
+    self.Name = title
+    
+    self.TabButton = Utility:Create("TextButton", {
+        Parent = window.SidebarLayout,
+        Size = UDim2.new(1, -20, 0, 36),
+        BackgroundColor3 = Nevora.Theme.Background,
+        BackgroundTransparency = 1,
+        Text = "  " .. title,
+        TextColor3 = Nevora.Theme.TextMuted,
+        Font = Nevora.Theme.Font,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AutoButtonColor = false
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = self.TabButton })
+    
+    self.Container = Utility:Create("ScrollingFrame", {
+        Parent = window.ContentContainer,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Nevora.Theme.Accent,
+        Visible = false,
+        AutomaticCanvasSize = Enum.AutomaticSize.Y
+    })
+    
+    Utility:Create("UIListLayout", {
+        Parent = self.Container,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 12),
+        HorizontalAlignment = Enum.HorizontalAlignment.Center
+    })
+    
+    Utility:Create("UIPadding", {
+        Parent = self.Container,
+        PaddingTop = UDim.new(0, 10),
+        PaddingBottom = UDim.new(0, 10)
+    })
+    
+    self.TabButton.MouseButton1Click:Connect(function()
+        self.Window:SelectTab(self)
+    end)
+    
+    return self
+end
+
+function Tab:CreateSection(title)
+    return Section.new(self.Container, title)
+end
+
+-- [ WINDOW MANAGER ]
+local Window = {}
+Window.__index = Window
+function Window.new(config)
+    local self = setmetatable({}, Window)
+    self.Tabs = {}
+    self.CurrentTab = nil
+    
+    self.ScreenGui = Utility:Create("ScreenGui", {
+        Name = "NevoraHub",
+        Parent = TargetParent,
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    })
+    Nevora.MainInstance = self.ScreenGui
+    
+    self.MainFrame = Utility:Create("Frame", {
+        Name = "MainFrame",
+        Parent = self.ScreenGui,
+        Size = UDim2.new(0, 650, 0, 450),
+        Position = UDim2.new(0.5, -325, 0.5, -225),
+        BackgroundColor3 = Nevora.Theme.Background,
+        BackgroundTransparency = 1 - Nevora.Theme.GlassOpacity,
+        ClipsDescendants = true
+    })
+    Utility:Create("UICorner", { CornerRadius = UDim.new(0, 10), Parent = self.MainFrame })
+    Utility:Create("UIStroke", { Color = Nevora.Theme.Border, Thickness = 1, Parent = self.MainFrame })
+    
+    self.MainFrame.Size = UDim2.new(0, 0, 0, 0)
+    Utility:Tween(self.MainFrame, {Size = UDim2.new(0, 650, 0, 450)}, 0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    
+    self.Topbar = Utility:Create("Frame", {
+        Name = "Topbar",
+        Parent = self.MainFrame,
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundTransparency = 1
+    })
+    Utility:MakeDraggable(self.Topbar, self.MainFrame)
+    
+    self.Title = Utility:Create("TextLabel", {
+        Parent = self.Topbar,
+        Size = UDim2.new(0, 200, 1, 0),
+        Position = UDim2.new(0, 20, 0, 0),
+        BackgroundTransparency = 1,
+        Text = config.Name or "Nevora Hub",
+        TextColor3 = Nevora.Theme.Accent,
+        Font = Nevora.Theme.FontBold,
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    -- Window Controls (Minimize & Close)
+    local CloseBtn = Utility:Create("TextButton", {
+        Name = "Close",
+        Parent = self.Topbar,
+        Size = UDim2.new(0, 30, 0, 30),
+        Position = UDim2.new(1, -35, 0.5, -15),
+        BackgroundTransparency = 1,
+        Text = "✕",
+        TextColor3 = Color3.fromRGB(255, 80, 80),
+        Font = Enum.Font.GothamBold,
+        TextSize = 14
+    })
+    CloseBtn.MouseButton1Click:Connect(function() Nevora:Unload() end)
+
+    local MinBtn = Utility:Create("TextButton", {
+        Name = "Minimize",
+        Parent = self.Topbar,
+        Size = UDim2.new(0, 30, 0, 30),
+        Position = UDim2.new(1, -70, 0.5, -15),
+        BackgroundTransparency = 1,
+        Text = "—",
+        TextColor3 = Nevora.Theme.TextMuted,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12
+    })
+    MinBtn.MouseButton1Click:Connect(function() self.MainFrame.Visible = false end)
+    
+    self.Sidebar = Utility:Create("Frame", {
+        Name = "Sidebar",
+        Parent = self.MainFrame,
+        Size = UDim2.new(0, 160, 1, -40),
+        Position = UDim2.new(0, 0, 0, 40),
+        BackgroundColor3 = Nevora.Theme.Sidebar,
+        BackgroundTransparency = 0.5
+    })
+    
+    self.SidebarLayout = Utility:Create("ScrollingFrame", {
+        Parent = self.Sidebar,
+        Size = UDim2.new(1, 0, 1, -20),
+        Position = UDim2.new(0, 0, 0, 10),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 0
+    })
+    Utility:Create("UIListLayout", {
+        Parent = self.SidebarLayout,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 5),
+        HorizontalAlignment = Enum.HorizontalAlignment.Center
+    })
+    
+    self.ContentContainer = Utility:Create("Frame", {
+        Name = "Content",
+        Parent = self.MainFrame,
+        Size = UDim2.new(1, -160, 1, -40),
+        Position = UDim2.new(0, 160, 0, 40),
+        BackgroundTransparency = 1
+    })
+    
+    local toggleKey = config.ToggleKey or Enum.KeyCode.RightControl
+    GlobalConnections:Add("UIToggle", UserInputService.InputBegan:Connect(function(input, processed)
+        if not processed and input.KeyCode == toggleKey then
+            self.MainFrame.Visible = not self.MainFrame.Visible
+        end
+    end))
+    
+    return self
+end
+
+function Window:SelectTab(tabInstance)
+    if self.CurrentTab then
+        Utility:Tween(self.CurrentTab.TabButton, { BackgroundTransparency = 1, TextColor3 = Nevora.Theme.TextMuted })
+        self.CurrentTab.Container.Visible = false
+    end
+    self.CurrentTab = tabInstance
+    Utility:Tween(tabInstance.TabButton, { BackgroundTransparency = 0, TextColor3 = Nevora.Theme.Accent })
+    tabInstance.Container.Visible = true
+end
+
+function Window:CreateTab(title, icon)
+    local tab = Tab.new(self, title, icon)
+    table.insert(self.Tabs, tab)
+    if #self.Tabs == 1 then
+        self:SelectTab(tab)
+    end
+    return tab
+end
+
+-- [ CONFIG ENGINE ]
+Nevora.Config = {
+    Path = "NevoraHub/Configs/",
+    CurrentProfile = "default.json"
+}
+
+function Nevora.Config:Save(data)
+    if writefile and makefolder then
+        if not isfolder(self.Path) then makefolder(self.Path) end
+        writefile(self.Path .. self.CurrentProfile, HttpService:JSONEncode(data))
+    else
+        warn("Nevora Hub: Environment doesn't support file saving system.")
+    end
+end
+
+function Nevora.Config:Load()
+    if isfile and readfile and isfile(self.Path .. self.CurrentProfile) then
+        return HttpService:JSONDecode(readfile(self.Path .. self.CurrentProfile))
+    end
+    return {}
+end
+
+-- [ THEME MANAGER ]
+function Nevora:SetTheme(newTheme)
+    for key, value in pairs(newTheme) do
+        Nevora.Theme[key] = value
+    end
+    Nevora.EventSystem:Fire("ThemeChanged", Nevora.Theme)
+end
+
+-- [ UNLOAD ENGINE ]
+function Nevora:Unload()
+    GlobalConnections:DisconnectAll()
+    
+    if Nevora.MainInstance then
+        Nevora.MainInstance:Destroy()
+        Nevora.MainInstance = nil
+    end
+    
+    if TooltipGui then TooltipGui:Destroy() end
+    if NotifContainer then NotifContainer:Destroy() end
+    
+    print("Nevora Hub: Framework unloaded and memory cleared.")
+end
+
+-- [ PUBLIC API ]
+function Nevora:CreateWindow(config)
+    return Window.new(config)
+end
+
+-- Export Library Globally
+if getgenv then getgenv().Nevora = Nevora end
+
+return Nevora
