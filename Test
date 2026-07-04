@@ -986,7 +986,7 @@ function Nevora:CreateWindow(config)
         end)
     end
     
-    table.insert(self.Windows, self)
+    -- Window created successfully
     
     return self
 end
