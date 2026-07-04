@@ -1,6 +1,6 @@
 --[[
-    NEVORA HUB ULTIMATE v4.0
-    Full WindUI Style | Toggle Open/Close | Icon Support
+    NEVORA HUB ULTIMATE v5.0
+    Full WindUI Style | Toggle Open/Close | Zyphora Icon Support
     No Filters | Built for Delta Executor
 ]]
 
@@ -22,30 +22,17 @@ ScreenGui.Parent = CoreGui
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 -- ============================================
--- UTILITY FUNCTIONS
+-- ZYPHORA ICON SUPPORT
 -- ============================================
+local IconSupport = loadstring(game:HttpGet("https://raw.githubusercontent.com/ZyphoraHubLiblaryV2/ZyphoraSupportIcon/refs/heads/main/SupportIconZyphora"))()
+
 local function GetIcon(iconName)
-    -- Lucide-style icons via rbxassetid
-    local icons = {
-        home = "rbxassetid://6031098371",
-        settings = "rbxassetid://6031098371",
-        info = "rbxassetid://6031098371",
-        sword = "rbxassetid://6031098371",
-        key = "rbxassetid://6031098371",
-        color = "rbxassetid://6031098371",
-        user = "rbxassetid://6031098371",
-        folder = "rbxassetid://6031098371",
-        check = "rbxassetid://6031098371",
-        x = "rbxassetid://6031098371",
-        plus = "rbxassetid://6031098371",
-        minus = "rbxassetid://6031098371",
-        chevron_down = "rbxassetid://6031098371",
-        chevron_right = "rbxassetid://6031098371",
-        eye = "rbxassetid://6031098371",
-        eye_off = "rbxassetid://6031098371",
-        search = "rbxassetid://6031098371",
-    }
-    return icons[iconName] or "rbxassetid://6031098371"
+    if not iconName or iconName == "" then return "rbxassetid://6031098371" end
+    local icon = IconSupport[iconName]
+    if icon then return icon end
+    -- Fallback: cek apakah itu langsung rbxassetid
+    if string.match(iconName, "^rbxassetid://") then return iconName end
+    return "rbxassetid://6031098371"
 end
 
 -- ============================================
@@ -167,7 +154,7 @@ function NevoraHub:CreateWindow(title)
     TitleLabel.Position = UDim2.new(0, 16, 0, 0)
     TitleLabel.Size = UDim2.new(0, 300, 1, 0)
     TitleLabel.Font = Enum.Font.GothamBold
-    TitleLabel.Text = "󰍉 " .. title
+    TitleLabel.Text = "  " .. title
     TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     TitleLabel.TextSize = 17
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -325,13 +312,13 @@ function NevoraHub:CreateWindow(title)
     end
 
     -- ============================================
-    -- CREATE TAB
+    -- CREATE TAB WITH ICON
     -- ============================================
     function Window:CreateTab(name, icon)
-        icon = icon or "file"
+        icon = icon or "folder"
         local tabId = #tabs + 1
         
-        -- Tab Button
+        -- Tab Button with Icon
         local TabBtn = Instance.new("TextButton")
         TabBtn.Parent = Sidebar
         TabBtn.BackgroundColor3 = currentTab == nil and Color3.fromRGB(50, 100, 255) or Color3.fromRGB(30, 30, 38)
@@ -345,15 +332,30 @@ function NevoraHub:CreateWindow(title)
         TabBtn.BackgroundTransparency = currentTab == nil and 0 or 0.2
         Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 6)
         
+        -- Tab Icon
+        local TabIcon = Instance.new("ImageLabel")
+        TabIcon.Parent = TabBtn
+        TabIcon.Size = UDim2.new(0, 16, 0, 16)
+        TabIcon.Position = UDim2.new(0, 8, 0.5, 0)
+        TabIcon.AnchorPoint = Vector2.new(0, 0.5)
+        TabIcon.BackgroundTransparency = 1
+        TabIcon.Image = GetIcon(icon)
+        TabIcon.ImageColor3 = currentTab == nil and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 200)
+        
+        -- Adjust text position
+        TabBtn.Text = "   " .. name
+        
         -- Hover effect
         TabBtn.MouseEnter:Connect(function()
             if currentTab ~= tabId then
                 TweenService:Create(TabBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.1, BackgroundColor3 = Color3.fromRGB(40, 40, 50)}):Play()
+                TweenService:Create(TabIcon, TweenInfo.new(0.15), {ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
             end
         end)
         TabBtn.MouseLeave:Connect(function()
             if currentTab ~= tabId then
                 TweenService:Create(TabBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.2, BackgroundColor3 = Color3.fromRGB(30, 30, 38)}):Play()
+                TweenService:Create(TabIcon, TweenInfo.new(0.15), {ImageColor3 = Color3.fromRGB(180, 180, 200)}):Play()
             end
         end)
 
@@ -376,12 +378,17 @@ function NevoraHub:CreateWindow(title)
             TabBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 255)
             TabBtn.BackgroundTransparency = 0
             TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            TabIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
         end
 
         TabBtn.MouseButton1Click:Connect(function()
             for _, btn in pairs(Sidebar:GetChildren()) do
                 if btn:IsA("TextButton") then
                     TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundTransparency = 0.2, BackgroundColor3 = Color3.fromRGB(30, 30, 38), TextColor3 = Color3.fromRGB(220, 220, 235)}):Play()
+                    local icon = btn:FindFirstChild("ImageLabel")
+                    if icon then
+                        TweenService:Create(icon, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(180, 180, 200)}):Play()
+                    end
                 end
             end
             for _, page in pairs(MainContent:GetChildren()) do
@@ -391,6 +398,7 @@ function NevoraHub:CreateWindow(title)
             end
             currentTab = tabId
             TweenService:Create(TabBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(50, 100, 255), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+            TweenService:Create(TabIcon, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
             TabPage.Visible = true
         end)
 
@@ -402,7 +410,7 @@ function NevoraHub:CreateWindow(title)
         local Elements = {}
 
         -- SECTION
-        function Elements:CreateSection(text, icon)
+        function Elements:CreateSection(text)
             local sec = Instance.new("Frame")
             sec.Parent = TabPage
             sec.BackgroundTransparency = 1
@@ -434,25 +442,49 @@ function NevoraHub:CreateWindow(title)
             }
         end
 
-        -- BUTTON
+        -- BUTTON with Icon
         function Elements:AddButton(text, callback, icon)
+            icon = icon or ""
             local btn = Instance.new("TextButton")
             btn.Parent = TabPage
             btn.Size = UDim2.new(1, -12, 0, 38)
             btn.Position = UDim2.new(0, 6, 0, 0)
             btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-            btn.Text = "  " .. (icon and icon .. " " or "") .. text
+            btn.Text = ""
             btn.TextColor3 = Color3.fromRGB(235, 235, 245)
             btn.Font = Enum.Font.Gotham
             btn.TextSize = 14
             btn.TextXAlignment = Enum.TextXAlignment.Left
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
             
+            -- Button Icon
+            local btnIcon = Instance.new("ImageLabel")
+            btnIcon.Parent = btn
+            btnIcon.Size = UDim2.new(0, 18, 0, 18)
+            btnIcon.Position = UDim2.new(0, 10, 0.5, 0)
+            btnIcon.AnchorPoint = Vector2.new(0, 0.5)
+            btnIcon.BackgroundTransparency = 1
+            btnIcon.Image = GetIcon(icon)
+            btnIcon.ImageColor3 = Color3.fromRGB(180, 190, 220)
+            
+            local btnLabel = Instance.new("TextLabel")
+            btnLabel.Parent = btn
+            btnLabel.BackgroundTransparency = 1
+            btnLabel.Size = UDim2.new(0, 300, 1, 0)
+            btnLabel.Position = UDim2.new(0, 34, 0, 0)
+            btnLabel.Text = text
+            btnLabel.TextColor3 = Color3.fromRGB(235, 235, 245)
+            btnLabel.Font = Enum.Font.Gotham
+            btnLabel.TextSize = 14
+            btnLabel.TextXAlignment = Enum.TextXAlignment.Left
+            
             btn.MouseEnter:Connect(function()
                 TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(45, 45, 55)}):Play()
+                TweenService:Create(btnIcon, TweenInfo.new(0.15), {ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
             end)
             btn.MouseLeave:Connect(function()
                 TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(35, 35, 45)}):Play()
+                TweenService:Create(btnIcon, TweenInfo.new(0.15), {ImageColor3 = Color3.fromRGB(180, 190, 220)}):Play()
             end)
             
             btn.MouseButton1Click:Connect(function()
@@ -464,13 +496,16 @@ function NevoraHub:CreateWindow(title)
 
             return {
                 Set = function(self, newText)
-                    btn.Text = "  " .. (icon and icon .. " " or "") .. newText
+                    btnLabel.Text = newText
+                end,
+                SetIcon = function(self, newIcon)
+                    btnIcon.Image = GetIcon(newIcon)
                 end
             }
         end
 
-        -- TOGGLE
-        function Elements:AddToggle(text, default, callback, flag)
+        -- TOGGLE with Icon
+        function Elements:AddToggle(text, default, callback, flag, icon)
             local state = default or false
             local container = Instance.new("Frame")
             container.Parent = TabPage
@@ -480,11 +515,21 @@ function NevoraHub:CreateWindow(title)
             container.ClipsDescendants = true
             Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
 
+            -- Icon
+            local togIcon = Instance.new("ImageLabel")
+            togIcon.Parent = container
+            togIcon.Size = UDim2.new(0, 16, 0, 16)
+            togIcon.Position = UDim2.new(0, 10, 0.5, 0)
+            togIcon.AnchorPoint = Vector2.new(0, 0.5)
+            togIcon.BackgroundTransparency = 1
+            togIcon.Image = GetIcon(icon or "")
+            togIcon.ImageColor3 = Color3.fromRGB(150, 160, 190)
+
             local label = Instance.new("TextLabel")
             label.Parent = container
             label.BackgroundTransparency = 1
-            label.Size = UDim2.new(0, 340, 1, 0)
-            label.Position = UDim2.new(0, 12, 0, 0)
+            label.Size = UDim2.new(0, 320, 1, 0)
+            label.Position = UDim2.new(0, 32, 0, 0)
             label.Text = text
             label.TextColor3 = Color3.fromRGB(235, 235, 245)
             label.Font = Enum.Font.Gotham
@@ -789,8 +834,8 @@ function NevoraHub:CreateWindow(title)
             return obj
         end
 
-        -- TEXTBOX
-        function Elements:AddTextBox(text, placeholder, default, callback, flag)
+        -- TEXTBOX with Icon
+        function Elements:AddTextBox(text, placeholder, default, callback, flag, icon)
             local container = Instance.new("Frame")
             container.Parent = TabPage
             container.Size = UDim2.new(1, -12, 0, 40)
@@ -798,11 +843,21 @@ function NevoraHub:CreateWindow(title)
             container.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
             Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
 
+            -- Icon
+            local boxIcon = Instance.new("ImageLabel")
+            boxIcon.Parent = container
+            boxIcon.Size = UDim2.new(0, 14, 0, 14)
+            boxIcon.Position = UDim2.new(0, 10, 0.5, 0)
+            boxIcon.AnchorPoint = Vector2.new(0, 0.5)
+            boxIcon.BackgroundTransparency = 1
+            boxIcon.Image = GetIcon(icon or "")
+            boxIcon.ImageColor3 = Color3.fromRGB(150, 160, 190)
+
             local label = Instance.new("TextLabel")
             label.Parent = container
             label.BackgroundTransparency = 1
-            label.Size = UDim2.new(0, 100, 1, 0)
-            label.Position = UDim2.new(0, 12, 0, 0)
+            label.Size = UDim2.new(0, 80, 1, 0)
+            label.Position = UDim2.new(0, 30, 0, 0)
             label.Text = text
             label.TextColor3 = Color3.fromRGB(235, 235, 245)
             label.Font = Enum.Font.Gotham
@@ -844,8 +899,8 @@ function NevoraHub:CreateWindow(title)
             return obj
         end
 
-        -- KEYBIND
-        function Elements:AddKeybind(text, defaultKey, callback, flag)
+        -- KEYBIND with Icon
+        function Elements:AddKeybind(text, defaultKey, callback, flag, icon)
             local key = defaultKey or Enum.KeyCode.K
             if type(key) == "string" then key = Enum.KeyCode[key] end
             
@@ -856,11 +911,21 @@ function NevoraHub:CreateWindow(title)
             container.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
             Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
 
+            -- Icon
+            local bindIcon = Instance.new("ImageLabel")
+            bindIcon.Parent = container
+            bindIcon.Size = UDim2.new(0, 16, 0, 16)
+            bindIcon.Position = UDim2.new(0, 10, 0.5, 0)
+            bindIcon.AnchorPoint = Vector2.new(0, 0.5)
+            bindIcon.BackgroundTransparency = 1
+            bindIcon.Image = GetIcon(icon or "")
+            bindIcon.ImageColor3 = Color3.fromRGB(150, 160, 190)
+
             local label = Instance.new("TextLabel")
             label.Parent = container
             label.BackgroundTransparency = 1
-            label.Size = UDim2.new(0, 250, 1, 0)
-            label.Position = UDim2.new(0, 12, 0, 0)
+            label.Size = UDim2.new(0, 230, 1, 0)
+            label.Position = UDim2.new(0, 32, 0, 0)
             label.Text = text
             label.TextColor3 = Color3.fromRGB(235, 235, 245)
             label.Font = Enum.Font.Gotham
@@ -963,7 +1028,7 @@ function NevoraHub:CreateWindow(title)
         end
 
         -- COLOR PICKER
-        function Elements:AddColorPicker(text, defaultColor, callback, flag)
+        function Elements:AddColorPicker(text, defaultColor, callback, flag, icon)
             local color = defaultColor or Color3.fromRGB(255, 255, 255)
             
             local container = Instance.new("Frame")
@@ -974,11 +1039,21 @@ function NevoraHub:CreateWindow(title)
             container.ClipsDescendants = true
             Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
 
+            -- Icon
+            local cpIcon = Instance.new("ImageLabel")
+            cpIcon.Parent = container
+            cpIcon.Size = UDim2.new(0, 16, 0, 16)
+            cpIcon.Position = UDim2.new(0, 10, 0.5, 0)
+            cpIcon.AnchorPoint = Vector2.new(0, 0.5)
+            cpIcon.BackgroundTransparency = 1
+            cpIcon.Image = GetIcon(icon or "")
+            cpIcon.ImageColor3 = Color3.fromRGB(150, 160, 190)
+
             local label = Instance.new("TextLabel")
             label.Parent = container
             label.BackgroundTransparency = 1
-            label.Size = UDim2.new(0, 300, 1, 0)
-            label.Position = UDim2.new(0, 12, 0, 0)
+            label.Size = UDim2.new(0, 280, 1, 0)
+            label.Position = UDim2.new(0, 32, 0, 0)
             label.Text = text
             label.TextColor3 = Color3.fromRGB(235, 235, 245)
             label.Font = Enum.Font.Gotham
@@ -1122,7 +1197,4 @@ function NevoraHub:CreateWindow(title)
     return Window
 end
 
--- ============================================
--- RETURN
--- ============================================
 return NevoraHub
