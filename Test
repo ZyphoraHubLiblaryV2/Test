@@ -1,19 +1,6 @@
--- Ultimate Roblox Lua UI Library (Mobile Optimized)
--- Version: 1.1.0
--- Author: Nevora Team
--- License: Premium
-
---[[
-    ███╗   ██╗███████╗██╗   ██╗ ██████╗ ██████╗  █████╗ 
-    ████╗  ██║██╔════╝██║   ██║██╔═══██╗██╔══██╗██╔══██╗
-    ██╔██╗ ██║█████╗  ██║   ██║██║   ██║██████╔╝███████║
-    ██║╚██╗██║██╔══╝  ╚██╗ ██╔╝██║   ██║██╔══██╗██╔══██║
-    ██║ ╚████║███████╗ ╚████╔╝ ╚██████╔╝██║  ██║██║  ██║
-    ╚═╝  ╚═══╝╚══════╝  ╚═══╝   ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝
-
-    Premium UI Framework for Roblox - Mobile Optimized
-    Professional | Modern | Scalable | Mobile Friendly
-]]
+-- ═══════════════════════════════════════════════════════════
+-- NEVORA HUB v1.1.0 - MOBILE OPTIMIZED (PART 1: CORE & SERVICES)
+-- ═══════════════════════════════════════════════════════════
 
 local Nevora = {}
 Nevora.__index = Nevora
@@ -21,7 +8,7 @@ Nevora.Version = "1.1.0"
 Nevora.Name = "Nevora Hub"
 
 -- ═══════════════════════════════════════════════════════════
--- SERVICES & UTILITIES
+-- SERVICES
 -- ═══════════════════════════════════════════════════════════
 
 local Services = {
@@ -419,7 +406,7 @@ function Maid:Destroy()
 end
 
 -- ═══════════════════════════════════════════════════════════
--- DRAGGABLE SYSTEM (Mobile Optimized)
+-- DRAGGABLE SYSTEM (MOBILE OPTIMIZED)
 -- ═══════════════════════════════════════════════════════════
 
 local Draggable = {}
@@ -468,7 +455,7 @@ function Draggable.new(frame, handle)
 end
 
 -- ═══════════════════════════════════════════════════════════
--- RESIZABLE SYSTEM (Mobile Optimized with Bigger Handle)
+-- RESIZABLE SYSTEM (MOBILE OPTIMIZED)
 -- ═══════════════════════════════════════════════════════════
 
 local Resizable = {}
@@ -483,7 +470,6 @@ function Resizable.new(frame, minSize, maxSize)
     minSize = minSize or Vector2.new(200, 150)
     maxSize = maxSize or Vector2.new(1920, 1080)
 
-    -- Bigger handle for mobile (25x25 instead of 15x15)
     local handle = Utility:Create("Frame", {
         Name = "ResizeHandle",
         BackgroundTransparency = 1,
@@ -680,18 +666,15 @@ function NotificationSystem:Notify(config)
         Parent = notification,
     })
 
-    -- Animation
     notification.Position = UDim2.new(1, 20, 0, 0)
     Utility:Tween(notification, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
         Position = UDim2.new(0, 0, 0, 0),
     })
 
-    -- Progress bar animation
     Utility:Tween(progressBar, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
         Size = UDim2.new(0, 0, 0, 3),
     })
 
-    -- Close functionality
     local function close()
         Utility:Tween(notification, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Position = UDim2.new(1, 20, 0, 0),
@@ -702,14 +685,14 @@ function NotificationSystem:Notify(config)
     end
 
     closeButton.MouseButton1Click:Connect(close)
-
     task.delay(duration, close)
 
     return notification
 end
 
+
 -- ═══════════════════════════════════════════════════════════
--- MAIN LIBRARY
+-- PART 2: MAIN LIBRARY & WINDOW (FIXED)
 -- ═══════════════════════════════════════════════════════════
 
 function Nevora.new(config)
@@ -718,10 +701,10 @@ function Nevora.new(config)
 
     self.Config = config
     self.Theme = Utility:DeepCopy(Themes[config.Theme or "Dark"] or Themes.Dark)
+    -- FIX: Initialize Windows table before any window creation
     self.Windows = {}
     self.Maid = Maid.new()
 
-    -- Create main ScreenGui
     self.ScreenGui = Utility:Create("ScreenGui", {
         Name = "NevoraHub_" .. Utility:GenerateId(),
         ResetOnSpawn = false,
@@ -729,14 +712,13 @@ function Nevora.new(config)
         Parent = Services.CoreGui,
     })
 
-    -- Create notification system
     self.Notifications = NotificationSystem.new(self.ScreenGui, self.Theme)
 
     return self
 end
 
 -- ═══════════════════════════════════════════════════════════
--- WINDOW (MOBILE OPTIMIZED - SMALLER DEFAULT SIZE)
+-- WINDOW (MOBILE OPTIMIZED)
 -- ═══════════════════════════════════════════════════════════
 
 local Window = {}
@@ -749,11 +731,11 @@ function Nevora:CreateWindow(config)
     self.Config = config
     self.Title = config.Title or "Nevora Hub"
     self.Subtitle = config.Subtitle or ""
-    -- MOBILE OPTIMIZED: Default size reduced from 800x500 to 500x350
+    -- MOBILE: Default size 500x350 (was 800x500)
     self.Size = config.Size or UDim2.new(0, 500, 0, 350)
-    -- MOBILE OPTIMIZED: Min size reduced from 400x300 to 280x200
+    -- MOBILE: Min size 280x200 (was 400x300)
     self.MinSize = config.MinSize or Vector2.new(280, 200)
-    self.Theme = self.Theme or Utility:DeepCopy(Themes.Dark)
+    self.Theme = Utility:DeepCopy(self.Theme or Themes.Dark)
     self.Tabs = {}
     self.ActiveTab = nil
     self.Maid = Maid.new()
@@ -772,7 +754,7 @@ function Nevora:CreateWindow(config)
         Position = UDim2.new(0.5, -self.Size.X.Offset/2, 0.5, -self.Size.Y.Offset/2),
         Size = self.Size,
         ClipsDescendants = true,
-        Parent = self.ScreenGui,
+        Parent = Nevora.ScreenGui or self.ScreenGui,
     })
 
     local mainCorner = Utility:Create("UICorner", {
@@ -780,7 +762,6 @@ function Nevora:CreateWindow(config)
         Parent = self.MainFrame,
     })
 
-    -- Shadow
     Utility:CreateShadow(self.MainFrame, 0.5, 8)
 
     -- Title Bar
@@ -798,7 +779,6 @@ function Nevora:CreateWindow(config)
         Parent = self.TitleBar,
     })
 
-    -- Fix corner for title bar
     local titleBarFix = Utility:Create("Frame", {
         BackgroundColor3 = self.Theme.Secondary,
         BackgroundTransparency = 0.5,
@@ -992,10 +972,191 @@ function Nevora:CreateWindow(config)
         end)
     end
 
-    table.insert(self.Windows, self)
+    -- FIX: Use the Nevora.Windows table (not self.Windows)
+    table.insert(Nevora.Windows, self)
 
     return self
 end
+
+
+-- ═══════════════════════════════════════════════════════════
+-- PART 3: OPEN/CLOSE TOGGLE BUTTON (NEW FEATURE)
+-- ═══════════════════════════════════════════════════════════
+
+function Window:CreateToggleButton(config)
+    config = config or {}
+    local toggleBtn = {}
+
+    toggleBtn.AssetId = config.AssetId or "rbxassetid://3926305904"
+    toggleBtn.Size = config.Size or UDim2.new(0, 44, 0, 44)
+    toggleBtn.Position = config.Position or UDim2.new(0, 20, 0, 20)
+    toggleBtn.Visible = true
+    toggleBtn.Draggable = config.Draggable ~= false
+
+    -- Create separate ScreenGui for toggle button
+    toggleBtn.ScreenGui = Utility:Create("ScreenGui", {
+        Name = "NevoraToggle_" .. Utility:GenerateId(),
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        Parent = Services.CoreGui,
+    })
+
+    -- Main button frame
+    toggleBtn.Button = Utility:Create("TextButton", {
+        Name = "ToggleButton",
+        BackgroundColor3 = self.Theme.Accent,
+        BorderSizePixel = 0,
+        Position = toggleBtn.Position,
+        Size = toggleBtn.Size,
+        Text = "",
+        Parent = toggleBtn.ScreenGui,
+    })
+
+    local corner = Utility:Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = toggleBtn.Button,
+    })
+
+    -- Shadow
+    Utility:CreateShadow(toggleBtn.Button, 0.4, 4)
+
+    -- Icon
+    toggleBtn.Icon = Utility:Create("ImageLabel", {
+        Name = "Icon",
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0.5, -toggleBtn.Size.X.Offset/2 + 8, 0.5, -toggleBtn.Size.Y.Offset/2 + 8),
+        Size = UDim2.new(0, toggleBtn.Size.X.Offset - 16, 0, toggleBtn.Size.Y.Offset - 16),
+        Image = toggleBtn.AssetId,
+        ImageColor3 = Color3.fromRGB(255, 255, 255),
+        Parent = toggleBtn.Button,
+    })
+
+    -- Glow effect
+    local glow = Utility:CreateGlow(toggleBtn.Button, self.Theme.Accent, 0.2)
+
+    -- State tracking
+    toggleBtn.WindowVisible = true
+
+    -- Click animation
+    toggleBtn.Button.MouseButton1Down:Connect(function()
+        Utility:Tween(toggleBtn.Button, TweenInfo.new(0.1), {
+            Size = UDim2.new(0, toggleBtn.Size.X.Offset * 0.9, 0, toggleBtn.Size.Y.Offset * 0.9),
+            Position = UDim2.new(0, toggleBtn.Position.X.Offset + toggleBtn.Size.X.Offset * 0.05, 0, toggleBtn.Position.Y.Offset + toggleBtn.Size.Y.Offset * 0.05),
+        })
+    end)
+
+    toggleBtn.Button.MouseButton1Up:Connect(function()
+        Utility:Tween(toggleBtn.Button, TweenInfo.new(0.1), {
+            Size = toggleBtn.Size,
+            Position = toggleBtn.Position,
+        })
+    end)
+
+    -- Toggle functionality
+    toggleBtn.Button.MouseButton1Click:Connect(function()
+        toggleBtn.WindowVisible = not toggleBtn.WindowVisible
+
+        if toggleBtn.WindowVisible then
+            -- Show window
+            self.MainFrame.Visible = true
+            Utility:Tween(self.MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+                Size = self.Size,
+                Position = UDim2.new(0.5, -self.Size.X.Offset/2, 0.5, -self.Size.Y.Offset/2),
+            })
+            Utility:Tween(toggleBtn.Icon, TweenInfo.new(0.3), {Rotation = 0})
+        else
+            -- Hide window
+            Utility:Tween(self.MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Size = UDim2.new(0, 0, 0, 0),
+                Position = UDim2.new(0.5, 0, 0.5, 0),
+            }, function()
+                self.MainFrame.Visible = false
+            end)
+            Utility:Tween(toggleBtn.Icon, TweenInfo.new(0.3), {Rotation = 180})
+        end
+    end)
+
+    -- Hover effects
+    toggleBtn.Button.MouseEnter:Connect(function()
+        Utility:Tween(toggleBtn.Button, TweenInfo.new(0.2), {
+            BackgroundColor3 = self.Theme.Accent:Lerp(Color3.fromRGB(255, 255, 255), 0.15),
+        })
+        Utility:Tween(glow, TweenInfo.new(0.2), {
+            ImageTransparency = 0.5,
+        })
+    end)
+
+    toggleBtn.Button.MouseLeave:Connect(function()
+        Utility:Tween(toggleBtn.Button, TweenInfo.new(0.2), {
+            BackgroundColor3 = self.Theme.Accent,
+        })
+        Utility:Tween(glow, TweenInfo.new(0.2), {
+            ImageTransparency = 0.7,
+        })
+    end)
+
+    -- Make toggle button draggable
+    if toggleBtn.Draggable then
+        local dragging = false
+        local dragStart = nil
+        local startPos = nil
+
+        toggleBtn.Button.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = toggleBtn.Button.Position
+            end
+        end)
+
+        Services.UserInputService.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
+                            input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = input.Position - dragStart
+                local newPos = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                )
+                toggleBtn.Button.Position = newPos
+                toggleBtn.Position = newPos
+            end
+        end)
+
+        Services.UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end)
+    end
+
+    -- Methods
+    toggleBtn.SetVisible = function(visible)
+        toggleBtn.Button.Visible = visible
+    end
+
+    toggleBtn.SetPosition = function(position)
+        toggleBtn.Position = position
+        toggleBtn.Button.Position = position
+    end
+
+    toggleBtn.SetAsset = function(assetId)
+        toggleBtn.AssetId = assetId
+        toggleBtn.Icon.Image = assetId
+    end
+
+    toggleBtn.Destroy = function()
+        toggleBtn.ScreenGui:Destroy()
+    end
+
+    return toggleBtn
+end
+
+
+-- ═══════════════════════════════════════════════════════════
+-- PART 4: TABS, SECTIONS & BASIC COMPONENTS
+-- ═══════════════════════════════════════════════════════════
 
 function Window:CreateTab(config)
     config = config or {}
@@ -1316,183 +1477,7 @@ function Window:CreateSection(tab, config)
 end
 
 -- ═══════════════════════════════════════════════════════════
--- OPEN/CLOSE TOGGLE BUTTON (NEW FEATURE)
--- ═══════════════════════════════════════════════════════════
-
-function Window:CreateToggleButton(config)
-    config = config or {}
-    local toggleBtn = {}
-
-    toggleBtn.AssetId = config.AssetId or "rbxassetid://3926305904"
-    toggleBtn.Size = config.Size or UDim2.new(0, 44, 0, 44)
-    toggleBtn.Position = config.Position or UDim2.new(0, 20, 0, 20)
-    toggleBtn.Visible = true
-    toggleBtn.Draggable = config.Draggable ~= false
-
-    -- Create the toggle button ScreenGui (separate from main window)
-    toggleBtn.ScreenGui = Utility:Create("ScreenGui", {
-        Name = "NevoraToggle_" .. Utility:GenerateId(),
-        ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        Parent = Services.CoreGui,
-    })
-
-    -- Main button frame
-    toggleBtn.Button = Utility:Create("TextButton", {
-        Name = "ToggleButton",
-        BackgroundColor3 = self.Theme.Accent,
-        BorderSizePixel = 0,
-        Position = toggleBtn.Position,
-        Size = toggleBtn.Size,
-        Text = "",
-        Parent = toggleBtn.ScreenGui,
-    })
-
-    local corner = Utility:Create("UICorner", {
-        CornerRadius = UDim.new(1, 0),
-        Parent = toggleBtn.Button,
-    })
-
-    -- Shadow for button
-    Utility:CreateShadow(toggleBtn.Button, 0.4, 4)
-
-    -- Icon
-    toggleBtn.Icon = Utility:Create("ImageLabel", {
-        Name = "Icon",
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0.5, -toggleBtn.Size.X.Offset/2 + 8, 0.5, -toggleBtn.Size.Y.Offset/2 + 8),
-        Size = UDim2.new(0, toggleBtn.Size.X.Offset - 16, 0, toggleBtn.Size.Y.Offset - 16),
-        Image = toggleBtn.AssetId,
-        ImageColor3 = Color3.fromRGB(255, 255, 255),
-        Parent = toggleBtn.Button,
-    })
-
-    -- Glow effect
-    local glow = Utility:CreateGlow(toggleBtn.Button, self.Theme.Accent, 0.2)
-
-    -- State tracking
-    toggleBtn.WindowVisible = true
-
-    -- Click animation
-    toggleBtn.Button.MouseButton1Down:Connect(function()
-        Utility:Tween(toggleBtn.Button, TweenInfo.new(0.1), {
-            Size = UDim2.new(0, toggleBtn.Size.X.Offset * 0.9, 0, toggleBtn.Size.Y.Offset * 0.9),
-            Position = UDim2.new(0, toggleBtn.Position.X.Offset + toggleBtn.Size.X.Offset * 0.05, 0, toggleBtn.Position.Y.Offset + toggleBtn.Size.Y.Offset * 0.05),
-        })
-    end)
-
-    toggleBtn.Button.MouseButton1Up:Connect(function()
-        Utility:Tween(toggleBtn.Button, TweenInfo.new(0.1), {
-            Size = toggleBtn.Size,
-            Position = toggleBtn.Position,
-        })
-    end)
-
-    -- Toggle functionality
-    toggleBtn.Button.MouseButton1Click:Connect(function()
-        toggleBtn.WindowVisible = not toggleBtn.WindowVisible
-
-        if toggleBtn.WindowVisible then
-            -- Show window
-            self.MainFrame.Visible = true
-            Utility:Tween(self.MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
-                Size = self.Size,
-                Position = UDim2.new(0.5, -self.Size.X.Offset/2, 0.5, -self.Size.Y.Offset/2),
-            })
-            -- Rotate icon back
-            Utility:Tween(toggleBtn.Icon, TweenInfo.new(0.3), {Rotation = 0})
-        else
-            -- Hide window
-            Utility:Tween(self.MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Size = UDim2.new(0, 0, 0, 0),
-                Position = UDim2.new(0.5, 0, 0.5, 0),
-            }, function()
-                self.MainFrame.Visible = false
-            end)
-            -- Rotate icon
-            Utility:Tween(toggleBtn.Icon, TweenInfo.new(0.3), {Rotation = 180})
-        end
-    end)
-
-    -- Hover effects
-    toggleBtn.Button.MouseEnter:Connect(function()
-        Utility:Tween(toggleBtn.Button, TweenInfo.new(0.2), {
-            BackgroundColor3 = self.Theme.Accent:Lerp(Color3.fromRGB(255, 255, 255), 0.15),
-        })
-        Utility:Tween(glow, TweenInfo.new(0.2), {
-            ImageTransparency = 0.5,
-        })
-    end)
-
-    toggleBtn.Button.MouseLeave:Connect(function()
-        Utility:Tween(toggleBtn.Button, TweenInfo.new(0.2), {
-            BackgroundColor3 = self.Theme.Accent,
-        })
-        Utility:Tween(glow, TweenInfo.new(0.2), {
-            ImageTransparency = 0.7,
-        })
-    end)
-
-    -- Make toggle button draggable if enabled
-    if toggleBtn.Draggable then
-        local dragging = false
-        local dragStart = nil
-        local startPos = nil
-
-        toggleBtn.Button.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-               input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = toggleBtn.Button.Position
-            end
-        end)
-
-        Services.UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
-                            input.UserInputType == Enum.UserInputType.Touch) then
-                local delta = input.Position - dragStart
-                local newPos = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + delta.X,
-                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                )
-                toggleBtn.Button.Position = newPos
-                toggleBtn.Position = newPos
-            end
-        end)
-
-        Services.UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-               input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
-            end
-        end)
-    end
-
-    -- Methods
-    toggleBtn.SetVisible = function(visible)
-        toggleBtn.Button.Visible = visible
-    end
-
-    toggleBtn.SetPosition = function(position)
-        toggleBtn.Position = position
-        toggleBtn.Button.Position = position
-    end
-
-    toggleBtn.SetAsset = function(assetId)
-        toggleBtn.AssetId = assetId
-        toggleBtn.Icon.Image = assetId
-    end
-
-    toggleBtn.Destroy = function()
-        toggleBtn.ScreenGui:Destroy()
-    end
-
-    return toggleBtn
-end
-
--- ═══════════════════════════════════════════════════════════
--- COMPONENTS
+-- COMPONENTS: BUTTON, TOGGLE, SLIDER, DROPDOWN
 -- ═══════════════════════════════════════════════════════════
 
 function Window:CreateButton(section, config)
@@ -1527,7 +1512,6 @@ function Window:CreateButton(section, config)
         Parent = btn,
     })
 
-    -- Icon
     if button.Icon ~= "" then
         local icon = Utility:Create("ImageLabel", {
             BackgroundTransparency = 1,
@@ -1540,7 +1524,6 @@ function Window:CreateButton(section, config)
         btn.Text = "        " .. button.Text
     end
 
-    -- Effects
     btn.MouseEnter:Connect(function()
         Utility:Tween(btn, TweenInfo.new(0.2), {
             BackgroundColor3 = self.Theme.Accent:Lerp(Color3.fromRGB(255, 255, 255), 0.1),
@@ -2014,6 +1997,11 @@ function Window:CreateDropdown(section, config)
     return dropdown
 end
 
+
+-- ═══════════════════════════════════════════════════════════
+-- PART 5: MORE COMPONENTS
+-- ═══════════════════════════════════════════════════════════
+
 function Window:CreateTextbox(section, config)
     config = config or {}
     local textbox = {}
@@ -2078,15 +2066,11 @@ function Window:CreateTextbox(section, config)
     })
 
     input.Focused:Connect(function()
-        Utility:Tween(stroke, TweenInfo.new(0.2), {
-            Color = self.Theme.Accent,
-        })
+        Utility:Tween(stroke, TweenInfo.new(0.2), {Color = self.Theme.Accent})
     end)
 
     input.FocusLost:Connect(function()
-        Utility:Tween(stroke, TweenInfo.new(0.2), {
-            Color = self.Theme.Border,
-        })
+        Utility:Tween(stroke, TweenInfo.new(0.2), {Color = self.Theme.Border})
         textbox.Callback(input.Text)
     end)
 
@@ -2309,7 +2293,6 @@ function Window:CreateColorPicker(section, config)
         Parent = preview,
     })
 
-    -- Simple color picker dialog
     preview.MouseButton1Click:Connect(function()
         local colors = {
             Color3.fromRGB(255, 255, 255),
@@ -2410,15 +2393,11 @@ function Window:CreateInput(section, config)
     })
 
     textBox.Focused:Connect(function()
-        Utility:Tween(stroke, TweenInfo.new(0.2), {
-            Color = self.Theme.Accent,
-        })
+        Utility:Tween(stroke, TweenInfo.new(0.2), {Color = self.Theme.Accent})
     end)
 
     textBox.FocusLost:Connect(function()
-        Utility:Tween(stroke, TweenInfo.new(0.2), {
-            Color = self.Theme.Border,
-        })
+        Utility:Tween(stroke, TweenInfo.new(0.2), {Color = self.Theme.Border})
         input.Callback(textBox.Text)
     end)
 
@@ -2511,8 +2490,9 @@ function Window:CreateProgressBar(section, config)
     return progressBar
 end
 
+
 -- ═══════════════════════════════════════════════════════════
--- WINDOW METHODS
+-- PART 6: WINDOW METHODS & ADVANCED COMPONENTS
 -- ═══════════════════════════════════════════════════════════
 
 function Window:Minimize()
@@ -2549,44 +2529,6 @@ end
 
 function Window:Notify(config)
     return self.Notifications:Notify(config)
-end
-
--- ═══════════════════════════════════════════════════════════
--- CONFIG SYSTEM
--- ═══════════════════════════════════════════════════════════
-
-function Nevora:SaveConfig(name, data)
-    local config = {
-        Name = name,
-        Data = data,
-        Timestamp = os.time(),
-    }
-    local json = Services.HttpService:JSONEncode(config)
-    return json
-end
-
-function Nevora:LoadConfig(json)
-    local success, config = pcall(function()
-        return Services.HttpService:JSONDecode(json)
-    end)
-    if success then
-        return config.Data
-    end
-    return nil
-end
-
-function Nevora:ExportConfig(data)
-    return Services.HttpService:JSONEncode(data)
-end
-
-function Nevora:ImportConfig(json)
-    local success, data = pcall(function()
-        return Services.HttpService:JSONDecode(json)
-    end)
-    if success then
-        return data
-    end
-    return nil
 end
 
 -- ═══════════════════════════════════════════════════════════
@@ -2864,8 +2806,9 @@ function Window:CreateCircularProgress(section, config)
     return progress
 end
 
+
 -- ═══════════════════════════════════════════════════════════
--- DIALOG / MODAL SYSTEM
+-- PART 7: DIALOG, TOOLTIP, SEARCH, CHIPS, ACCORDION, ETC.
 -- ═══════════════════════════════════════════════════════════
 
 function Window:CreateDialog(config)
@@ -3003,10 +2946,6 @@ function Window:CreateDialog(config)
     return dialog
 end
 
--- ═══════════════════════════════════════════════════════════
--- TOOLTIP SYSTEM
--- ═══════════════════════════════════════════════════════════
-
 function Window:CreateTooltip(parent, text)
     local tooltip = {}
 
@@ -3059,10 +2998,6 @@ function Window:CreateTooltip(parent, text)
     tooltip.Instance = frame
     return tooltip
 end
-
--- ═══════════════════════════════════════════════════════════
--- SEARCH COMPONENT
--- ═══════════════════════════════════════════════════════════
 
 function Window:CreateSearchBox(section, config)
     config = config or {}
@@ -3137,10 +3072,6 @@ function Window:CreateSearchBox(section, config)
     return searchBox
 end
 
--- ═══════════════════════════════════════════════════════════
--- CHIP / BADGE COMPONENT
--- ═══════════════════════════════════════════════════════════
-
 function Window:CreateChip(section, config)
     config = config or {}
     local chip = {}
@@ -3203,10 +3134,6 @@ function Window:CreateChip(section, config)
     chip.Instance = container
     return chip
 end
-
--- ═══════════════════════════════════════════════════════════
--- ACCORDION COMPONENT
--- ═══════════════════════════════════════════════════════════
 
 function Window:CreateAccordion(section, config)
     config = config or {}
@@ -3294,10 +3221,6 @@ function Window:CreateAccordion(section, config)
     accordion.Instance = container
     return accordion
 end
-
--- ═══════════════════════════════════════════════════════════
--- RADIO / CHECKBOX COMPONENT
--- ═══════════════════════════════════════════════════════════
 
 function Window:CreateRadio(section, config)
     config = config or {}
@@ -3465,10 +3388,6 @@ function Window:CreateCheckbox(section, config)
     return checkbox
 end
 
--- ═══════════════════════════════════════════════════════════
--- CARD / CONTAINER COMPONENT
--- ═══════════════════════════════════════════════════════════
-
 function Window:CreateCard(section, config)
     config = config or {}
     local card = {}
@@ -3532,10 +3451,6 @@ function Window:CreateCard(section, config)
     return card
 end
 
--- ═══════════════════════════════════════════════════════════
--- GRID / LIST COMPONENT
--- ═══════════════════════════════════════════════════════════
-
 function Window:CreateGrid(section, config)
     config = config or {}
     local grid = {}
@@ -3594,10 +3509,6 @@ function Window:CreateList(section, config)
     return list
 end
 
--- ═══════════════════════════════════════════════════════════
--- SEPARATOR COMPONENT
--- ═══════════════════════════════════════════════════════════
-
 function Window:CreateSeparator(section, config)
     config = config or {}
     local separator = {}
@@ -3637,10 +3548,6 @@ function Window:CreateSeparator(section, config)
     separator.Instance = container
     return separator
 end
-
--- ═══════════════════════════════════════════════════════════
--- STATUS COMPONENT
--- ═══════════════════════════════════════════════════════════
 
 function Window:CreateStatus(section, config)
     config = config or {}
@@ -3698,10 +3605,6 @@ function Window:CreateStatus(section, config)
     status.Instance = container
     return status
 end
-
--- ═══════════════════════════════════════════════════════════
--- FOOTER / HEADER COMPONENT
--- ═══════════════════════════════════════════════════════════
 
 function Window:CreateFooter(section, config)
     config = config or {}
@@ -3776,7 +3679,7 @@ function Window:CreateHeader(section, config)
 end
 
 -- ═══════════════════════════════════════════════════════════
--- THEME SWITCHER
+-- THEME SWITCHER & COMMAND PALETTE
 -- ═══════════════════════════════════════════════════════════
 
 function Nevora:SetTheme(themeName)
@@ -3796,10 +3699,6 @@ end
 function Nevora:RegisterTheme(name, theme)
     Themes[name] = theme
 end
-
--- ═══════════════════════════════════════════════════════════
--- GLOBAL SEARCH / COMMAND PALETTE
--- ═══════════════════════════════════════════════════════════
 
 function Nevora:CreateCommandPalette(config)
     config = config or {}
@@ -3897,6 +3796,44 @@ function Nevora:CreateCommandPalette(config)
 
     palette.Instance = frame
     return palette
+end
+
+-- ═══════════════════════════════════════════════════════════
+-- CONFIG SYSTEM
+-- ═══════════════════════════════════════════════════════════
+
+function Nevora:SaveConfig(name, data)
+    local config = {
+        Name = name,
+        Data = data,
+        Timestamp = os.time(),
+    }
+    local json = Services.HttpService:JSONEncode(config)
+    return json
+end
+
+function Nevora:LoadConfig(json)
+    local success, config = pcall(function()
+        return Services.HttpService:JSONDecode(json)
+    end)
+    if success then
+        return config.Data
+    end
+    return nil
+end
+
+function Nevora:ExportConfig(data)
+    return Services.HttpService:JSONEncode(data)
+end
+
+function Nevora:ImportConfig(json)
+    local success, data = pcall(function()
+        return Services.HttpService:JSONDecode(json)
+    end)
+    if success then
+        return data
+    end
+    return nil
 end
 
 -- ═══════════════════════════════════════════════════════════
